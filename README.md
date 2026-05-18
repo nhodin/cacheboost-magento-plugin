@@ -1,0 +1,1 @@
+# cacheboost-magento-plugin
