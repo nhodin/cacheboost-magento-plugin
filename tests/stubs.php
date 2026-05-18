@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 // Minimal stubs for Magento interfaces and classes used by the plugin.
 // These replace the full magento/framework dependency for standalone unit tests.
 
