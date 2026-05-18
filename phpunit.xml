@@ -8,12 +8,5 @@
             <directory>tests/Unit</directory>
         </testsuite>
     </testsuites>
-    <source>
-        <include>
-            <directory suffix=".php">app/code/CacheBoost/Warmer</directory>
-        </include>
-        <exclude>
-            <directory>app/code/CacheBoost/Warmer/Test</directory>
-        </exclude>
-    </source>
+
 </phpunit>
