@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <cacheboost>
+            <general>
+                <enabled>0</enabled>
+                <api_endpoint>https://api.cache-boost.com</api_endpoint>
+                <region>fr</region>
+                <mode>smart</mode>
+            </general>
+        </cacheboost>
+    </default>
+</config>

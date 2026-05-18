@@ -1,0 +1,35 @@
+﻿<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+
+    <!-- Full cache flush from admin panel -->
+    <event name="adminhtml_cache_flush_all">
+        <observer name="cacheboost_flush_all"
+                  instance="CacheBoost\Warmer\Observer\FlushAll"/>
+    </event>
+
+    <!-- Storage flush (JS/CSS/etc.) from admin panel -->
+    <event name="adminhtml_cache_flush_system">
+        <observer name="cacheboost_flush_system"
+                  instance="CacheBoost\Warmer\Observer\FlushAll"/>
+    </event>
+
+    <!-- Granular tag-based invalidation (product/category/CMS save, reindex, etc.) -->
+    <event name="clean_cache_by_tags">
+        <observer name="cacheboost_flush_by_tags"
+                  instance="CacheBoost\Warmer\Observer\FlushByTags"/>
+    </event>
+
+    <!-- Post-reindex flush -->
+    <event name="clean_cache_after_reindex">
+        <observer name="cacheboost_flush_reindex"
+                  instance="CacheBoost\Warmer\Observer\FlushAll"/>
+    </event>
+
+    <!-- Flush the URL buffer once, just before the response is sent -->
+    <event name="controller_front_send_response_before">
+        <observer name="cacheboost_send_buffered_urls"
+                  instance="CacheBoost\Warmer\Observer\SendBufferedUrls"/>
+    </event>
+
+</config>

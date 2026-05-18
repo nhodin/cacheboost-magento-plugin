@@ -1,0 +1,92 @@
+﻿<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+        <tab id="cacheboost" translate="label" sortOrder="300">
+            <label>CacheBoost</label>
+        </tab>
+
+        <section id="cacheboost" translate="label" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+            <label>CacheBoost Warmer</label>
+            <tab>cacheboost</tab>
+            <resource>CacheBoost_Warmer::config</resource>
+
+            <!-- ── General ─────────────────────────────────────────────────── -->
+            <group id="general" translate="label" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+                <label>General</label>
+
+                <field id="enabled" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>Enable CacheBoost</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+
+                <field id="api_key" translate="label comment" type="obscure" sortOrder="20" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>API Key</label>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                    <comment><![CDATA[Bearer token CacheBoost (format <code>cb_live_…</code>). Scopes requis : <strong>boosts:read</strong>, <strong>boosts:write</strong>, <strong>runs:read</strong> (historique du Boost planifié). Voir le README.]]></comment>
+                </field>
+
+                <field id="site_id" translate="label comment" type="text" sortOrder="30" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>Site ID</label>
+                    <comment>Identifiant numérique de votre site dans CacheBoost (ex. 42). Visible dans Stores → Sites de l'application CacheBoost.</comment>
+                    <validate>validate-digits</validate>
+                </field>
+
+                <field id="region" translate="label comment" type="text" sortOrder="40" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>Region(s)</label>
+                    <comment>Comma-separated region codes (e.g. fr or fr,eu). Must match the regions configured in your CacheBoost Boost.</comment>
+                </field>
+
+                <field id="mode" translate="label comment" type="select" sortOrder="50" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>Warm Mode</label>
+                    <source_model>CacheBoost\Warmer\Model\Config\Source\WarmMode</source_model>
+                    <comment><![CDATA[<strong>Smart</strong> : résout les tags Magento en URLs et déclenche un warm ciblé (recommandé). <strong>Full Only</strong> : déclenche toujours le Boost planifié complet.]]></comment>
+                </field>
+
+                <field id="api_endpoint" translate="label comment" type="text" sortOrder="60" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>API Endpoint</label>
+                    <comment>URL de base de l'API CacheBoost. Ne modifiez pas sauf indication du support.</comment>
+                </field>
+            </group>
+
+            <!-- ── Full flush (scheduled boost) ──────────────────────────── -->
+            <group id="flush_all" translate="label comment" sortOrder="20" showInDefault="1" showInWebsite="0" showInStore="0">
+                <label>Full Flush — Scheduled Boost</label>
+                <comment><![CDATA[
+                    Used on full cache flush events (Flush All Cache, Flush Storage, Reindex).
+                    These events provide no URL list: CacheBoost must warm from an existing Boost with a sitemap or CSV.
+                    <strong>Prerequisite:</strong> create a "sitemap" or "csv" Boost in the CacheBoost app, note its ID,
+                    and enter it below. The API key must have the <strong>boosts:write</strong> scope.
+                    If no Boost ID is set, full flush events are silently skipped (scheduled boosts cover this case).
+                ]]></comment>
+
+                <field id="boost_id" translate="label comment" type="text" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>Boost ID (full flush)</label>
+                    <comment><![CDATA[Numeric ID of the CacheBoost Boost to trigger (e.g. 7). Leave empty to disable. Must be a <strong>sitemap</strong> or <strong>csv</strong> Boost — not inline. See the README for setup instructions.]]></comment>
+                    <validate>validate-digits-range digits-range-0-999999</validate>
+                </field>
+            </group>
+
+            <!-- ── Tests & Diagnostic ────────────────────────────────────── -->
+            <group id="test" translate="label" sortOrder="25" showInDefault="1" showInWebsite="0" showInStore="0">
+                <label>Tests &amp; Diagnostic</label>
+
+                <field id="test_buttons" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label></label>
+                    <frontend_model>CacheBoost\Warmer\Block\Adminhtml\TestButton</frontend_model>
+                </field>
+            </group>
+
+            <!-- ── Warm history ───────────────────────────────────────────── -->
+            <group id="history" translate="label" sortOrder="30" showInDefault="1" showInWebsite="0" showInStore="0">
+                <label>Warm History</label>
+
+                <field id="warm_history" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label></label>
+                    <frontend_model>CacheBoost\Warmer\Block\Adminhtml\WarmHistory</frontend_model>
+                </field>
+            </group>
+
+        </section>
+    </system>
+</config>
