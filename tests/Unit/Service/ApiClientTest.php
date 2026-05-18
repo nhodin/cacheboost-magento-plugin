@@ -79,11 +79,18 @@ class ApiClientTest extends TestCase
     public function testTriggerWarmAddsAuthorizationHeader(): void
     {
         $this->curl->method('getStatus')->willReturn(200);
-        $this->curl->expects(self::atLeastOnce())
-            ->method('addHeader')
-            ->with('Authorization', 'Bearer test-key');
+
+        $headers = [];
+        $this->curl->method('addHeader')->willReturnCallback(
+            function (string $name, string $value) use (&$headers): void {
+                $headers[$name] = $value;
+            }
+        );
 
         $this->client->triggerWarm(['https://example.com/']);
+
+        self::assertArrayHasKey('Authorization', $headers);
+        self::assertSame('Bearer test-key', $headers['Authorization']);
     }
 
     public function testTriggerWarmReturnsTrueOn2xx(): void
