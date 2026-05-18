@@ -190,6 +190,8 @@ composer install
 vendor/bin/phpunit
 ```
 
+> In production, use `composer install --no-dev` to skip test dependencies.
+
 Tests cover `Config`, `ApiClient`, and `UrlCollector`. All Magento framework dependencies are replaced by lightweight stubs in `tests/stubs.php`, so the suite runs anywhere PHP 8.1+ and Composer are available.
 
 ---
