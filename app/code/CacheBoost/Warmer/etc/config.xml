@@ -5,7 +5,6 @@
         <cacheboost>
             <general>
                 <enabled>0</enabled>
-                <api_endpoint>https://api.cache-boost.com</api_endpoint>
                 <region>fr</region>
                 <mode>smart</mode>
             </general>

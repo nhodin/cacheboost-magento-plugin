@@ -45,7 +45,22 @@ class Api extends Action
 
     private function testConnection(): array
     {
-        return $this->apiClient->ping();
+        $result = $this->apiClient->ping();
+        if (!$result['success']) {
+            return $result;
+        }
+
+        $required = ['sites:read', 'boosts:read', 'boosts:write'];
+        $missing  = array_diff($required, $result['scopes'] ?? []);
+
+        if (!empty($missing)) {
+            return [
+                'success' => false,
+                'message' => (string) __('Connected, but missing required scopes: %1. Please regenerate your API key with the correct permissions.', implode(', ', $missing)),
+            ];
+        }
+
+        return ['success' => true, 'message' => (string) __('Connection successful. All required scopes are granted.')];
     }
 
     private function testWarm(): array

@@ -23,7 +23,7 @@
                 <field id="api_key" translate="label comment" type="obscure" sortOrder="20" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label>API Key</label>
                     <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
-                    <comment><![CDATA[Bearer token CacheBoost (format <code>cb_live_…</code>). Scopes requis : <strong>boosts:read</strong>, <strong>boosts:write</strong>, <strong>runs:read</strong> (historique du Boost planifié). Voir le README.]]></comment>
+                    <comment><![CDATA[Bearer token CacheBoost (format <code>cb_live_…</code>). Scopes requis : <strong>sites:read</strong>, <strong>boosts:read</strong>, <strong>boosts:write</strong>. Générez votre clé sur <a href="https://app.cache-boost.com/profile" target="_blank">app.cache-boost.com/profile</a>.]]></comment>
                 </field>
 
                 <field id="site_id" translate="label comment" type="text" sortOrder="30" showInDefault="1" showInWebsite="0" showInStore="0">
@@ -43,10 +43,6 @@
                     <comment><![CDATA[<strong>Smart</strong> : résout les tags Magento en URLs et déclenche un warm ciblé (recommandé). <strong>Full Only</strong> : déclenche toujours le Boost planifié complet.]]></comment>
                 </field>
 
-                <field id="api_endpoint" translate="label comment" type="text" sortOrder="60" showInDefault="1" showInWebsite="0" showInStore="0">
-                    <label>API Endpoint</label>
-                    <comment>URL de base de l'API CacheBoost. Ne modifiez pas sauf indication du support.</comment>
-                </field>
             </group>
 
             <!-- ── Full flush (scheduled boost) ──────────────────────────── -->

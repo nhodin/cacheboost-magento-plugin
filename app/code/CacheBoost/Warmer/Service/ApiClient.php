@@ -29,7 +29,7 @@ class ApiClient
         }
 
         $siteId   = $this->config->getSiteId();
-        $endpoint = $this->config->getApiEndpoint() . "/v1/sites/{$siteId}/warm";
+        $endpoint = Config::API_ENDPOINT . "/v1/sites/{$siteId}/warm";
 
         return $this->post($endpoint, [
             'urls'   => array_values(array_unique($urls)),
@@ -43,7 +43,7 @@ class ApiClient
      */
     public function triggerBoostRun(int $boostId): bool
     {
-        $endpoint = $this->config->getApiEndpoint() . "/v1/boosts/{$boostId}/run";
+        $endpoint = Config::API_ENDPOINT . "/v1/boosts/{$boostId}/run";
         return $this->post($endpoint, []);
     }
 
@@ -55,7 +55,7 @@ class ApiClient
     {
         try {
             $siteId   = $this->config->getSiteId();
-            $endpoint = $this->config->getApiEndpoint() . "/v1/sites/{$siteId}/warm-runs?limit={$limit}";
+            $endpoint = Config::API_ENDPOINT . "/v1/sites/{$siteId}/warm-runs?limit={$limit}";
 
             $this->prepareCurl();
             $this->curl->get($endpoint);
@@ -76,32 +76,31 @@ class ApiClient
     }
 
     /**
-     * Verifies that the API key and Site ID are valid.
-     * Calls GET /v1/sites/{id}/warm-runs (requires boosts:read) — lightweight, no side effects.
-     * Returns ['success' => bool, 'message' => string].
+     * Calls GET /v1/me to verify the API key and retrieve granted scopes.
+     * Returns ['success' => bool, 'scopes' => string[], 'message' => string].
      */
     public function ping(): array
     {
         try {
-            if (!$this->config->isConfigured()) {
-                return ['success' => false, 'message' => (string) __('API Key or Site ID is not configured.')];
+            $apiKey = $this->config->getApiKey();
+            if ($apiKey === '') {
+                return ['success' => false, 'message' => (string) __('API Key is not configured.')];
             }
 
-            $siteId   = $this->config->getSiteId();
-            $endpoint = $this->config->getApiEndpoint() . "/v1/sites/{$siteId}/warm-runs?limit=1";
-
             $this->prepareCurl();
-            $this->curl->get($endpoint);
+            $this->curl->get(Config::API_ENDPOINT . '/v1/me');
 
             $status = $this->curl->getStatus();
 
-            return match (true) {
-                $status === 200 => ['success' => true,  'message' => (string) __('Connection OK — API key is valid, site found.')],
-                $status === 401 => ['success' => false, 'message' => (string) __('Error 401 — invalid or expired API key.')],
-                $status === 403 => ['success' => false, 'message' => (string) __('Error 403 — insufficient scope. Check that the key has boosts:read and boosts:write scopes.')],
-                $status === 404 => ['success' => false, 'message' => (string) __('Error 404 — site not found. Check your Site ID and that the key authorizes this site.')],
-                default         => ['success' => false, 'message' => (string) __('HTTP error %1 — %2', $status, $this->curl->getBody())],
-            };
+            if ($status === 401) {
+                return ['success' => false, 'message' => (string) __('Error 401 — invalid or expired API key.')];
+            }
+            if ($status !== 200) {
+                return ['success' => false, 'message' => (string) __('HTTP error %1', $status)];
+            }
+
+            $body = json_decode($this->curl->getBody(), true);
+            return ['success' => true, 'scopes' => $body['scopes'] ?? []];
 
         } catch (\Throwable $e) {
             return ['success' => false, 'message' => (string) __('Network error: %1', $e->getMessage())];
@@ -115,7 +114,7 @@ class ApiClient
     public function getBoostRuns(int $boostId, int $limit = 10): array
     {
         try {
-            $endpoint = $this->config->getApiEndpoint() . "/v1/runs?boost_id={$boostId}&limit={$limit}";
+            $endpoint = Config::API_ENDPOINT . "/v1/runs?boost_id={$boostId}&limit={$limit}";
 
             $this->prepareCurl();
             $this->curl->get($endpoint);
