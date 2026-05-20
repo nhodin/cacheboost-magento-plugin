@@ -29,7 +29,7 @@ class ApiClient
         }
 
         $siteId   = $this->config->getSiteId();
-        $endpoint = Config::API_ENDPOINT . "/v1/sites/{$siteId}/warm";
+        $endpoint = $this->config->getApiEndpoint() . "/v1/sites/{$siteId}/warm";
 
         return $this->post($endpoint, [
             'urls'   => array_values(array_unique($urls)),
@@ -43,7 +43,7 @@ class ApiClient
      */
     public function triggerBoostRun(int $boostId): bool
     {
-        $endpoint = Config::API_ENDPOINT . "/v1/boosts/{$boostId}/run";
+        $endpoint = $this->config->getApiEndpoint() . "/v1/boosts/{$boostId}/run";
         return $this->post($endpoint, []);
     }
 
@@ -55,7 +55,7 @@ class ApiClient
     {
         try {
             $siteId   = $this->config->getSiteId();
-            $endpoint = Config::API_ENDPOINT . "/v1/sites/{$siteId}/warm-runs?limit={$limit}";
+            $endpoint = $this->config->getApiEndpoint() . "/v1/sites/{$siteId}/warm-runs?limit={$limit}";
 
             $this->prepareCurl();
             $this->curl->get($endpoint);
@@ -82,13 +82,12 @@ class ApiClient
     public function ping(): array
     {
         try {
-            $apiKey = $this->config->getApiKey();
-            if ($apiKey === '') {
-                return ['success' => false, 'message' => (string) __('API Key is not configured.')];
+            if (!$this->config->isConfigured()) {
+                return ['success' => false, 'message' => (string) __('API key or Site ID is not configured.')];
             }
 
             $this->prepareCurl();
-            $this->curl->get(Config::API_ENDPOINT . '/v1/me');
+            $this->curl->get($this->config->getApiEndpoint() . '/v1/me');
 
             $status = $this->curl->getStatus();
 
@@ -100,7 +99,7 @@ class ApiClient
             }
 
             $body = json_decode($this->curl->getBody(), true);
-            return ['success' => true, 'scopes' => $body['scopes'] ?? []];
+            return ['success' => true, 'message' => (string) __('Connection successful.'), 'scopes' => $body['scopes'] ?? []];
 
         } catch (\Throwable $e) {
             return ['success' => false, 'message' => (string) __('Network error: %1', $e->getMessage())];
@@ -114,7 +113,7 @@ class ApiClient
     public function getBoostRuns(int $boostId, int $limit = 10): array
     {
         try {
-            $endpoint = Config::API_ENDPOINT . "/v1/runs?boost_id={$boostId}&limit={$limit}";
+            $endpoint = $this->config->getApiEndpoint() . "/v1/runs?boost_id={$boostId}&limit={$limit}";
 
             $this->prepareCurl();
             $this->curl->get($endpoint);
