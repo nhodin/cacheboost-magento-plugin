@@ -6,15 +6,19 @@ namespace CacheBoost\Warmer\Service;
 
 use CacheBoost\Warmer\Model\Config;
 use Magento\Framework\HTTP\Client\Curl;
+use Magento\Framework\HTTP\Client\CurlFactory;
 use Psr\Log\LoggerInterface;
 
 class ApiClient
 {
     private const TIMEOUT = 3;
 
+    /** Hard limit enforced by POST /v1/sites/{id}/warm — requests above it are rejected. */
+    private const MAX_URLS = 5000;
+
     public function __construct(
         private readonly Config $config,
-        private readonly Curl $curl,
+        private readonly CurlFactory $curlFactory,
         private readonly LoggerInterface $logger
     ) {}
 
@@ -28,13 +32,26 @@ class ApiClient
             return false;
         }
 
+        $urls = array_values(array_unique($urls));
+        if (count($urls) > self::MAX_URLS) {
+            $this->logger->warning(sprintf(
+                'CacheBoost: %d URLs collected, truncated to the API limit of %d.',
+                count($urls),
+                self::MAX_URLS
+            ));
+            $urls = array_slice($urls, 0, self::MAX_URLS);
+        }
+
+        $payload = ['urls' => $urls];
+        $regions = $this->config->getRegions();
+        if (!empty($regions)) {
+            $payload['region'] = $regions;
+        }
+
         $siteId   = $this->config->getSiteId();
         $endpoint = $this->config->getApiEndpoint() . "/v1/sites/{$siteId}/warm";
 
-        return $this->post($endpoint, [
-            'urls'   => array_values(array_unique($urls)),
-            'region' => $this->config->getRegions(),
-        ]);
+        return $this->post($endpoint, $payload);
     }
 
     /**
@@ -57,16 +74,16 @@ class ApiClient
             $siteId   = $this->config->getSiteId();
             $endpoint = $this->config->getApiEndpoint() . "/v1/sites/{$siteId}/warm-runs?limit={$limit}";
 
-            $this->prepareCurl();
-            $this->curl->get($endpoint);
+            $curl = $this->newCurl();
+            $curl->get($endpoint);
 
-            $status = $this->curl->getStatus();
+            $status = $curl->getStatus();
             if ($status < 200 || $status >= 300) {
                 $this->logger->warning("CacheBoost: GET warm-runs returned HTTP {$status}");
                 return [];
             }
 
-            $data = json_decode($this->curl->getBody(), true);
+            $data = json_decode($curl->getBody(), true);
             return is_array($data) ? ($data['data'] ?? []) : [];
 
         } catch (\Throwable $e) {
@@ -83,13 +100,13 @@ class ApiClient
     {
         try {
             if (!$this->config->isConfigured()) {
-                return ['success' => false, 'message' => (string) __('API key or Site ID is not configured.')];
+                return ['success' => false, 'message' => (string) __('API Key or Site ID is not configured.')];
             }
 
-            $this->prepareCurl();
-            $this->curl->get($this->config->getApiEndpoint() . '/v1/me');
+            $curl = $this->newCurl();
+            $curl->get($this->config->getApiEndpoint() . '/v1/me');
 
-            $status = $this->curl->getStatus();
+            $status = $curl->getStatus();
 
             if ($status === 401) {
                 return ['success' => false, 'message' => (string) __('Error 401 — invalid or expired API key.')];
@@ -98,7 +115,7 @@ class ApiClient
                 return ['success' => false, 'message' => (string) __('HTTP error %1', $status)];
             }
 
-            $body = json_decode($this->curl->getBody(), true);
+            $body = json_decode($curl->getBody(), true);
             return ['success' => true, 'message' => (string) __('Connection successful.'), 'scopes' => $body['scopes'] ?? []];
 
         } catch (\Throwable $e) {
@@ -115,20 +132,20 @@ class ApiClient
         try {
             $endpoint = $this->config->getApiEndpoint() . "/v1/runs?boost_id={$boostId}&limit={$limit}";
 
-            $this->prepareCurl();
-            $this->curl->get($endpoint);
+            $curl = $this->newCurl();
+            $curl->get($endpoint);
 
-            $status = $this->curl->getStatus();
+            $status = $curl->getStatus();
             if ($status < 200 || $status >= 300) {
                 $this->logger->warning("CacheBoost: GET runs returned HTTP {$status}");
                 return [];
             }
 
-            $data = json_decode($this->curl->getBody(), true);
+            $data = json_decode($curl->getBody(), true);
             return is_array($data) ? ($data['data'] ?? []) : [];
 
         } catch (\Throwable $e) {
-            $this->logger->error('CacheBoost: getBoostRuns failed — ' . $e->getMessage());
+            $this->logger->error("CacheBoost: getBoostRuns failed — " . $e->getMessage());
             return [];
         }
     }
@@ -136,17 +153,17 @@ class ApiClient
     private function post(string $endpoint, array $payload): bool
     {
         try {
-            $this->prepareCurl();
-            $this->curl->addHeader('Content-Type', 'application/json');
-            $this->curl->post($endpoint, json_encode($payload));
+            $curl = $this->newCurl();
+            $curl->addHeader('Content-Type', 'application/json');
+            $curl->post($endpoint, json_encode($payload));
 
-            $status = $this->curl->getStatus();
+            $status = $curl->getStatus();
             if ($status >= 200 && $status < 300) {
                 return true;
             }
 
             $this->logger->warning(
-                "CacheBoost: POST {$endpoint} returned HTTP {$status} — " . $this->curl->getBody()
+                "CacheBoost: POST {$endpoint} returned HTTP {$status} — " . $curl->getBody()
             );
             return false;
 
@@ -156,10 +173,13 @@ class ApiClient
         }
     }
 
-    private function prepareCurl(): void
+    /** A fresh client per call: the shared Curl instance carries headers and state across requests. */
+    private function newCurl(): Curl
     {
-        $this->curl->setTimeout(self::TIMEOUT);
-        $this->curl->addHeader('Authorization', 'Bearer ' . $this->config->getApiKey());
-        $this->curl->addHeader('Accept', 'application/json');
+        $curl = $this->curlFactory->create();
+        $curl->setTimeout(self::TIMEOUT);
+        $curl->addHeader('Authorization', 'Bearer ' . $this->config->getApiKey());
+        $curl->addHeader('Accept', 'application/json');
+        return $curl;
     }
 }

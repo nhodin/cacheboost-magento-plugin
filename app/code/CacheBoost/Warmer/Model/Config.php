@@ -17,6 +17,8 @@ class Config
     private const XML_API_ENDPOINT = 'cacheboost/general/api_endpoint';
     private const XML_BOOST_ID     = 'cacheboost/flush_all/boost_id';
 
+    private const DEFAULT_API_ENDPOINT = 'https://api.cache-boost.com';
+
     public function __construct(
         private readonly ScopeConfigInterface $scopeConfig,
         private readonly EncryptorInterface $encryptor
@@ -51,7 +53,8 @@ class Config
 
     public function getApiEndpoint(): string
     {
-        return rtrim((string) $this->scopeConfig->getValue(self::XML_API_ENDPOINT), '/');
+        $value = rtrim((string) $this->scopeConfig->getValue(self::XML_API_ENDPOINT), '/');
+        return $value !== '' ? $value : self::DEFAULT_API_ENDPOINT;
     }
 
     public function getBoostId(): int

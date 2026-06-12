@@ -32,6 +32,21 @@ class Curl
     public function getBody(): string { return ''; }
 }
 
+class CurlFactory
+{
+    public function create(array $data = []): Curl { return new Curl(); }
+}
+
+namespace Magento\Framework\App;
+
+interface CacheInterface
+{
+    public function load($identifier);
+    public function save($data, $identifier, $tags = [], $lifeTime = null);
+    public function remove($identifier);
+    public function clean($tags = []);
+}
+
 namespace Magento\Framework\Event;
 
 interface ObserverInterface
@@ -55,6 +70,7 @@ namespace Magento\Store\Model;
 interface StoreManagerInterface
 {
     public function getStores(bool $withDefault = false, bool $codeKey = false): array;
+    public function getDefaultStoreView(): ?\Magento\Store\Api\Data\StoreInterface;
 }
 
 namespace Magento\UrlRewrite\Model;

@@ -21,6 +21,7 @@ class UrlCollector
     private array $pendingTags = [];
     private bool $fullFlushPending = false;
     private bool $flushed = false;
+    private bool $shutdownRegistered = false;
 
     public function __construct(
         private readonly Config $config,
@@ -33,6 +34,7 @@ class UrlCollector
     public function markFullFlush(): void
     {
         $this->fullFlushPending = true;
+        $this->registerShutdownFallback();
     }
 
     public function collectTags(array $tags): void
@@ -42,6 +44,24 @@ class UrlCollector
                 $this->pendingTags[$tag] = true;
             }
         }
+        if (!empty($this->pendingTags)) {
+            $this->registerShutdownFallback();
+        }
+    }
+
+    /**
+     * controller_front_send_response_before never fires in CLI/cron contexts
+     * (bin/magento indexer:reindex, cron jobs…), so a shutdown function is the
+     * only guaranteed flush point there. In HTTP requests the event observer
+     * flushes first and this becomes a no-op thanks to the $flushed guard.
+     */
+    private function registerShutdownFallback(): void
+    {
+        if ($this->shutdownRegistered) {
+            return;
+        }
+        $this->shutdownRegistered = true;
+        register_shutdown_function([$this, 'flush']);
     }
 
     /**
@@ -123,12 +143,33 @@ class UrlCollector
             return [];
         }
 
+        // The API rejects the whole batch (422) if any URL is outside the domain
+        // registered for the CacheBoost site. The default store view's host is our
+        // best local proxy for that domain: skip stores served on other domains.
+        $referenceHost = null;
+        try {
+            $referenceHost = parse_url(
+                $this->storeManager->getDefaultStoreView()->getBaseUrl(),
+                PHP_URL_HOST
+            ) ?: null;
+        } catch (\Throwable) {
+            // No default store view available — skip host filtering.
+        }
+
         $urls = [];
         foreach ($this->storeManager->getStores() as $store) {
             if (!$store->isActive()) {
                 continue;
             }
             $baseUrl = rtrim($store->getBaseUrl(), '/');
+
+            $host = parse_url($store->getBaseUrl(), PHP_URL_HOST);
+            if ($referenceHost !== null && $host !== $referenceHost) {
+                $this->logger->debug(
+                    "CacheBoost: store #{$store->getId()} skipped — host {$host} differs from site domain {$referenceHost}."
+                );
+                continue;
+            }
 
             foreach ($entities as $criterion) {
                 try {

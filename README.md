@@ -118,7 +118,8 @@ Go to **Stores → Configuration → CacheBoost → CacheBoost Warmer**.
 | Site ID | Numeric ID of your site (Step 1) |
 | Region(s) | CacheBoost region code(s), e.g. `fr` or `fr,eu` |
 | Warm Mode | `Smart` (recommended) or `Full Only` |
-| API Endpoint | `https://api.cache-boost.com` (do not change) |
+
+> The API endpoint (`https://api.cache-boost.com`) is built in and requires no configuration.
 
 ### Full Flush — Scheduled Boost section
 
@@ -161,6 +162,8 @@ The 15 most recent warm runs (inline and full) appear automatically once the API
 | `cat_c_{id}` | Category URL(s) |
 | `cms_p_{id}` | CMS page URL |
 | `cms_b_{id}` | *(ignored — CMS blocks have no direct URL)* |
+
+> **Multi-store note:** URLs are resolved for all active store views sharing the default store view's domain. Store views served on a different domain are skipped, because a CacheBoost site is bound to a single domain (create one CacheBoost site per domain if needed).
 
 ---
 

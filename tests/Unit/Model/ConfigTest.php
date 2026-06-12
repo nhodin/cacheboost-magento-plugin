@@ -65,16 +65,25 @@ class ConfigTest extends TestCase
 
     public function testGetApiEndpointStripsTrailingSlash(): void
     {
-        $this->scopeConfig->method('getValue')->willReturn('https://api.cacheboost.io/');
+        $this->scopeConfig->method('getValue')->willReturn('https://api.cache-boost.com/');
 
-        self::assertSame('https://api.cacheboost.io', $this->config->getApiEndpoint());
+        self::assertSame('https://api.cache-boost.com', $this->config->getApiEndpoint());
     }
 
     public function testGetApiEndpointReturnsCleanUrlWithoutSlash(): void
     {
-        $this->scopeConfig->method('getValue')->willReturn('https://api.cacheboost.io');
+        $this->scopeConfig->method('getValue')->willReturn('https://api.cache-boost.com');
 
-        self::assertSame('https://api.cacheboost.io', $this->config->getApiEndpoint());
+        self::assertSame('https://api.cache-boost.com', $this->config->getApiEndpoint());
+    }
+
+    public function testGetApiEndpointFallsBackToProductionWhenUnset(): void
+    {
+        // Without this fallback every API call targets a relative URL and the
+        // plugin is silently inoperative (the admin form has no endpoint field).
+        $this->scopeConfig->method('getValue')->willReturn(null);
+
+        self::assertSame('https://api.cache-boost.com', $this->config->getApiEndpoint());
     }
 
     // ── getApiKey ────────────────────────────────────────────────────────────

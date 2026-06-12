@@ -7,6 +7,7 @@ namespace CacheBoost\Warmer\Test\Unit\Service;
 use CacheBoost\Warmer\Model\Config;
 use CacheBoost\Warmer\Service\ApiClient;
 use Magento\Framework\HTTP\Client\Curl;
+use Magento\Framework\HTTP\Client\CurlFactory;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
@@ -23,12 +24,15 @@ class ApiClientTest extends TestCase
         $this->curl   = $this->createMock(Curl::class);
         $this->logger = $this->createMock(LoggerInterface::class);
 
-        $this->config->method('getApiEndpoint')->willReturn('https://api.cacheboost.io');
+        $curlFactory = $this->createMock(CurlFactory::class);
+        $curlFactory->method('create')->willReturn($this->curl);
+
+        $this->config->method('getApiEndpoint')->willReturn('https://api.cache-boost.com');
         $this->config->method('getApiKey')->willReturn('test-key');
         $this->config->method('getSiteId')->willReturn(42);
         $this->config->method('getRegions')->willReturn([]);
 
-        $this->client = new ApiClient($this->config, $this->curl, $this->logger);
+        $this->client = new ApiClient($this->config, $curlFactory, $this->logger);
     }
 
     // ── triggerWarm ──────────────────────────────────────────────────────────
@@ -45,22 +49,47 @@ class ApiClientTest extends TestCase
         $this->curl->method('getStatus')->willReturn(200);
         $this->curl->expects(self::once())
             ->method('post')
-            ->with('https://api.cacheboost.io/v1/sites/42/warm', self::anything());
+            ->with('https://api.cache-boost.com/v1/sites/42/warm', self::anything());
 
         $this->client->triggerWarm(['https://example.com/']);
     }
 
-    public function testTriggerWarmSendsJsonPayload(): void
+    public function testTriggerWarmSendsJsonPayloadWithoutRegionWhenUnset(): void
     {
+        // 'region' must be omitted when no region is configured, so the API
+        // applies its own default instead of receiving an empty list.
         $this->curl->method('getStatus')->willReturn(200);
         $this->curl->expects(self::once())
             ->method('post')
             ->with(
                 self::anything(),
-                json_encode(['urls' => ['https://a.com/', 'https://b.com/'], 'region' => []])
+                json_encode(['urls' => ['https://a.com/', 'https://b.com/']])
             );
 
         $this->client->triggerWarm(['https://a.com/', 'https://b.com/']);
+    }
+
+    public function testTriggerWarmIncludesConfiguredRegions(): void
+    {
+        $config = $this->createMock(Config::class);
+        $config->method('getApiEndpoint')->willReturn('https://api.cache-boost.com');
+        $config->method('getApiKey')->willReturn('test-key');
+        $config->method('getSiteId')->willReturn(42);
+        $config->method('getRegions')->willReturn(['fr', 'eu']);
+
+        $curlFactory = $this->createMock(CurlFactory::class);
+        $curlFactory->method('create')->willReturn($this->curl);
+        $client = new ApiClient($config, $curlFactory, $this->logger);
+
+        $this->curl->method('getStatus')->willReturn(200);
+        $this->curl->expects(self::once())
+            ->method('post')
+            ->with(
+                self::anything(),
+                json_encode(['urls' => ['https://a.com/'], 'region' => ['fr', 'eu']])
+            );
+
+        $client->triggerWarm(['https://a.com/']);
     }
 
     public function testTriggerWarmDeduplicatesUrls(): void
@@ -70,10 +99,31 @@ class ApiClientTest extends TestCase
             ->method('post')
             ->with(
                 self::anything(),
-                json_encode(['urls' => ['https://a.com/'], 'region' => []])
+                json_encode(['urls' => ['https://a.com/']])
             );
 
         $this->client->triggerWarm(['https://a.com/', 'https://a.com/']);
+    }
+
+    public function testTriggerWarmTruncatesToApiUrlLimit(): void
+    {
+        // The API rejects batches above 5000 URLs with a 422; the client must
+        // truncate and warn rather than lose the entire warm request.
+        $urls = array_map(static fn(int $i) => "https://a.com/p{$i}", range(1, 5001));
+
+        $this->curl->method('getStatus')->willReturn(200);
+        $this->logger->expects(self::once())->method('warning');
+        $this->curl->expects(self::once())
+            ->method('post')
+            ->with(
+                self::anything(),
+                self::callback(function (string $body): bool {
+                    $payload = json_decode($body, true);
+                    return count($payload['urls']) === 5000;
+                })
+            );
+
+        self::assertTrue($this->client->triggerWarm($urls));
     }
 
     public function testTriggerWarmAddsAuthorizationHeader(): void
@@ -139,7 +189,7 @@ class ApiClientTest extends TestCase
         $this->curl->method('getBody')->willReturn('{"data":[]}');
         $this->curl->expects(self::once())
             ->method('get')
-            ->with('https://api.cacheboost.io/v1/sites/42/warm-runs?limit=5');
+            ->with('https://api.cache-boost.com/v1/sites/42/warm-runs?limit=5');
 
         $this->client->getWarmRuns(5);
     }
@@ -223,7 +273,7 @@ class ApiClientTest extends TestCase
         $this->curl->method('getBody')->willReturn('{"data":[]}');
         $this->curl->expects(self::once())
             ->method('get')
-            ->with('https://api.cacheboost.io/v1/runs?boost_id=7&limit=10');
+            ->with('https://api.cache-boost.com/v1/runs?boost_id=7&limit=10');
 
         $this->client->getBoostRuns(7);
     }

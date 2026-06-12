@@ -208,6 +208,30 @@ class UrlCollectorTest extends TestCase
         $this->collector->flush();
     }
 
+    public function testFlushSkipsStoresOnOtherDomains(): void
+    {
+        // The API rejects the whole batch if any URL is outside the registered
+        // site domain: stores served on another domain must be excluded.
+        $this->config->method('isConfigured')->willReturn(true);
+        $this->config->method('getMode')->willReturn('smart');
+
+        $mainStore  = $this->makeActiveStore('https://example.com', 1);
+        $otherStore = $this->makeActiveStore('https://other-domain.com', 2);
+        $this->storeManager->method('getStores')->willReturn([$mainStore, $otherStore]);
+        $this->storeManager->method('getDefaultStoreView')->willReturn($mainStore);
+
+        $rewrite = $this->createMock(UrlRewrite::class);
+        $rewrite->method('getRequestPath')->willReturn('page.html');
+        $this->urlFinder->method('findAllByData')->willReturn([$rewrite]);
+
+        $this->apiClient->expects(self::once())
+            ->method('triggerWarm')
+            ->with(['https://example.com/page.html']);
+
+        $this->collector->collectTags(['cat_p_1']);
+        $this->collector->flush();
+    }
+
     public function testFlushSkipsWarmWhenNoUrlsResolved(): void
     {
         $this->config->method('isConfigured')->willReturn(true);

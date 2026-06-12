@@ -7,6 +7,7 @@
                 <enabled>0</enabled>
                 <region>fr</region>
                 <mode>smart</mode>
+                <api_endpoint>https://api.cache-boost.com</api_endpoint>
             </general>
         </cacheboost>
     </default>

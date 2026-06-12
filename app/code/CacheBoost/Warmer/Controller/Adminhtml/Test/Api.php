@@ -8,6 +8,7 @@ use CacheBoost\Warmer\Model\Config;
 use CacheBoost\Warmer\Service\ApiClient;
 use Magento\Backend\App\Action;
 use Magento\Backend\App\Action\Context;
+use Magento\Framework\App\Action\HttpPostActionInterface;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Controller\ResultInterface;
 use Magento\Store\Model\StoreManagerInterface;
@@ -16,7 +17,7 @@ use Magento\Store\Model\StoreManagerInterface;
  * AJAX endpoint for the "Test" panel in Stores → Configuration → CacheBoost.
  * URL: {admin}/cacheboost/test/api?action={connection|warm|boost_run}
  */
-class Api extends Action
+class Api extends Action implements HttpPostActionInterface
 {
     public const ADMIN_RESOURCE = 'CacheBoost_Warmer::config';
 
@@ -50,7 +51,8 @@ class Api extends Action
             return $result;
         }
 
-        $required = ['sites:read', 'boosts:read', 'boosts:write'];
+        // boosts:write → trigger warms/runs, boosts:read → inline history, runs:read → boost run history.
+        $required = ['boosts:read', 'boosts:write', 'runs:read'];
         $missing  = array_diff($required, $result['scopes'] ?? []);
 
         if (!empty($missing)) {

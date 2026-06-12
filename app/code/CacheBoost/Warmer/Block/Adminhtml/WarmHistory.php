@@ -8,18 +8,23 @@ use CacheBoost\Warmer\Model\Config;
 use CacheBoost\Warmer\Service\ApiClient;
 use Magento\Backend\Block\Template\Context;
 use Magento\Config\Block\System\Config\Form\Field;
+use Magento\Framework\App\CacheInterface;
 use Magento\Framework\Data\Form\Element\AbstractElement;
 
 /**
- * frontend_model for the "Historique des préchauffages" field in system.xml.
+ * frontend_model for the "Warm History" field in system.xml.
  * Calls GET /v1/sites/{id}/warm-runs and renders a styled table.
  */
 class WarmHistory extends Field
 {
+    /** Runs are cached briefly so reloading the config page doesn't block on two HTTP calls. */
+    private const CACHE_TTL = 60;
+
     public function __construct(
         Context $context,
         private readonly Config $config,
         private readonly ApiClient $apiClient,
+        private readonly CacheInterface $cache,
         array $data = []
     ) {
         parent::__construct($context, $data);
@@ -34,6 +39,33 @@ class WarmHistory extends Field
             ));
         }
 
+        try {
+            $runs = $this->loadRuns();
+        } catch (\Throwable) {
+            // The history panel must never break the whole configuration page.
+            return $this->wrapRow($this->notice((string) __('No warm runs found for this site.')));
+        }
+
+        if (empty($runs)) {
+            return $this->wrapRow($this->notice((string) __('No warm runs found for this site.')));
+        }
+
+        return $this->wrapRow($this->table($runs));
+    }
+
+    private function loadRuns(): array
+    {
+        $boostId  = $this->config->getBoostId();
+        $cacheKey = sprintf('cacheboost_warm_history_%d_%d', $this->config->getSiteId(), $boostId);
+
+        $cached = $this->cache->load($cacheKey);
+        if ($cached !== false) {
+            $runs = json_decode($cached, true);
+            if (is_array($runs)) {
+                return $runs;
+            }
+        }
+
         $inlineRuns = $this->apiClient->getWarmRuns(10);
         foreach ($inlineRuns as &$r) {
             $r['_type'] = 'inline';
@@ -41,7 +73,6 @@ class WarmHistory extends Field
         unset($r);
 
         $boostRuns = [];
-        $boostId   = $this->config->getBoostId();
         if ($boostId > 0) {
             $boostRuns = $this->apiClient->getBoostRuns($boostId, 10);
             foreach ($boostRuns as &$r) {
@@ -59,11 +90,9 @@ class WarmHistory extends Field
         ));
         $runs = array_slice($runs, 0, 15);
 
-        if (empty($runs)) {
-            return $this->wrapRow($this->notice((string) __('No warm runs found for this site.')));
-        }
+        $this->cache->save(json_encode($runs), $cacheKey, [], self::CACHE_TTL);
 
-        return $this->wrapRow($this->table($runs));
+        return $runs;
     }
 
     private function table(array $runs): string
@@ -72,12 +101,21 @@ class WarmHistory extends Field
         foreach ($runs as $run) {
             $id     = (int) ($run['id'] ?? 0);
             $status = htmlspecialchars((string) ($run['status'] ?? ''), ENT_QUOTES);
-            $type   = $run['_type'] === 'full' ? 'full' : 'inline';
-            $date   = isset($run['created_at'])
-                ? (new \DateTimeImmutable($run['created_at']))->format('d/m/Y H:i')
+            $type   = ($run['_type'] ?? '') === 'full' ? 'full' : 'inline';
+
+            $date = '—';
+            if (isset($run['created_at'])) {
+                try {
+                    $date = (new \DateTimeImmutable((string) $run['created_at']))->format('d/m/Y H:i');
+                } catch (\Throwable) {
+                    // Malformed API date: keep the placeholder rather than break the page.
+                }
+            }
+
+            $urlCount = isset($run['source_urls']) && is_array($run['source_urls'])
+                ? count($run['source_urls'])
                 : '—';
-            $urlCount = is_array($run['source_urls']) ? count($run['source_urls']) : '—';
-            $region   = is_array($run['run_region'])
+            $region   = isset($run['run_region']) && is_array($run['run_region'])
                 ? htmlspecialchars(implode(', ', $run['run_region']), ENT_QUOTES)
                 : '—';
 
@@ -113,17 +151,23 @@ class WarmHistory extends Field
             );
         }
 
+        $th = static fn(string $label, string $extra = ''): string => sprintf(
+            '<th style="padding:8px 12px;font-weight:600;color:#555%s">%s</th>',
+            $extra,
+            htmlspecialchars($label, ENT_QUOTES)
+        );
+
         return '
         <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:4px">
             <thead>
-                <tr style="background:#f8f8f8;border-bottom:2px solid #ddd;text-align:left">
-                    <th style="padding:8px 12px;font-weight:600;color:#555">Run</th>
-                    <th style="padding:8px 12px;font-weight:600;color:#555">Statut</th>
-                    <th style="padding:8px 12px;font-weight:600;color:#555">Type</th>
-                    <th style="padding:8px 12px;font-weight:600;color:#555">Date</th>
-                    <th style="padding:8px 12px;font-weight:600;color:#555;text-align:right">URLs</th>
-                    <th style="padding:8px 12px;font-weight:600;color:#555">Région</th>
-                    <th style="padding:8px 12px;font-weight:600;color:#555">HIT / MISS</th>
+                <tr style="background:#f8f8f8;border-bottom:2px solid #ddd;text-align:left">'
+                    . $th((string) __('Run'))
+                    . $th((string) __('Status'))
+                    . $th((string) __('Type'))
+                    . $th((string) __('Date'))
+                    . $th((string) __('URLs'), ';text-align:right')
+                    . $th((string) __('Region'))
+                    . $th((string) __('HIT / MISS')) . '
                 </tr>
             </thead>
             <tbody>' . $rows . '</tbody>
