@@ -14,10 +14,16 @@ Automatically triggers a CacheBoost cache warm-up whenever a flush or invalidati
 
 | Item | Version |
 |---|---|
-| Magento | 2.4.x |
+| Magento | 2.4.6+ |
 | PHP | 8.1+ |
 | PHP extensions | `curl`, `json` |
 | CacheBoost account | Active (Free plan or higher) |
+
+---
+
+## Multi-store / multi-domain
+
+The module supports a **single CacheBoost Site ID per installation**. In Smart mode, URLs are resolved for all active store views that share the default store view's domain; store views served on a **different domain are skipped**, because their URLs would be rejected by the CacheBoost API (a CacheBoost site is bound to one domain). If you run several domains, create one CacheBoost site per domain and warm the others via their own scheduled Boosts.
 
 ---
 
@@ -26,7 +32,7 @@ Automatically triggers a CacheBoost cache warm-up whenever a flush or invalidati
 ### Option A — Via Composer (recommended)
 
 ```bash
-composer require cacheboost/magento2-notifier
+composer require cacheboost/module-warmer
 bin/magento module:enable CacheBoost_Warmer
 bin/magento setup:upgrade
 bin/magento cache:flush
