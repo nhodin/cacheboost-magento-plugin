@@ -247,6 +247,55 @@ class UrlCollectorTest extends TestCase
         $this->collector->flush();
     }
 
+    // ── flush – MAX_TAGS cap ─────────────────────────────────────────────────
+
+    public function testFlushFallsBackToBoostRunWhenTooManyTags(): void
+    {
+        // Above the tag cap, resolving each tag (one UrlFinder query per store)
+        // would hammer the DB — with a Boost ID configured, a full run is used.
+        $this->config->method('isConfigured')->willReturn(true);
+        $this->config->method('getMode')->willReturn('smart');
+        $this->config->method('getBoostId')->willReturn(7);
+
+        $this->urlFinder->expects(self::never())->method('findAllByData');
+        $this->apiClient->expects(self::never())->method('triggerWarm');
+        $this->apiClient->expects(self::once())->method('triggerBoostRun')->with(7);
+        $this->logger->expects(self::once())->method('info');
+
+        $tags = array_map(static fn(int $i) => "cat_p_{$i}", range(1, 501));
+        $this->collector->collectTags($tags);
+        $this->collector->flush();
+    }
+
+    public function testFlushTruncatesTagsWhenTooManyAndNoBoostId(): void
+    {
+        // Without a Boost ID there is no full-run fallback: only the first
+        // MAX_TAGS (500) tags are resolved, and a warning explains the loss.
+        $this->config->method('isConfigured')->willReturn(true);
+        $this->config->method('getMode')->willReturn('smart');
+        $this->config->method('getBoostId')->willReturn(0);
+
+        $store = $this->makeActiveStore('https://example.com', 1);
+        $this->storeManager->method('getStores')->willReturn([$store]);
+
+        $rewrite = $this->createMock(UrlRewrite::class);
+        $rewrite->method('getRequestPath')->willReturn('page.html');
+        // 501 tags collected, but only 500 lookups: one per truncated tag.
+        $this->urlFinder->expects(self::exactly(500))
+            ->method('findAllByData')
+            ->willReturn([$rewrite]);
+
+        $this->apiClient->expects(self::never())->method('triggerBoostRun');
+        $this->apiClient->expects(self::once())
+            ->method('triggerWarm')
+            ->with(['https://example.com/page.html']);
+        $this->logger->expects(self::once())->method('warning');
+
+        $tags = array_map(static fn(int $i) => "cat_p_{$i}", range(1, 501));
+        $this->collector->collectTags($tags);
+        $this->collector->flush();
+    }
+
     // ── tag pattern routing ──────────────────────────────────────────────────
 
     /** @dataProvider tagPatternProvider */

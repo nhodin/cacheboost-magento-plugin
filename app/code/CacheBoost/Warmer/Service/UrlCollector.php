@@ -14,9 +14,22 @@ use Psr\Log\LoggerInterface;
  * Collects cache tags during the request and resolves them to URLs at flush time.
  * Acts as a per-request buffer: multiple flush events are batched into a single API call.
  * Shared as a singleton by the DI container.
+ *
+ * Tag resolution is capped at MAX_TAGS: each tag costs one UrlFinder query per
+ * store, so an unbounded buffer (e.g. a partial reindex invalidating tens of
+ * thousands of tags) would hammer the database at shutdown. Above the cap the
+ * collector falls back to the configured scheduled Boost, or truncates when no
+ * Boost ID is configured.
  */
 class UrlCollector
 {
+    /**
+     * Maximum number of tags resolved to URLs in a single flush. Each tag is
+     * one UrlFinder query per active store; beyond this we fall back to a full
+     * Boost run (or truncate) instead of flooding the DB.
+     */
+    private const MAX_TAGS = 500;
+
     /** @var array<string, true> */
     private array $pendingTags = [];
     private bool $fullFlushPending = false;
@@ -105,13 +118,41 @@ class UrlCollector
         }
 
         // Smart mode: resolve tags to URLs and trigger a targeted inline warm.
-        $urls = $this->resolveTagsToUrls(array_keys($this->pendingTags));
+        $tags = array_keys($this->pendingTags);
+
+        // Resolving each tag costs one UrlFinder query per store; above the cap
+        // a full Boost run is cheaper for everyone than thousands of DB queries.
+        if (count($tags) > self::MAX_TAGS) {
+            $boostId = $this->config->getBoostId();
+            if ($boostId > 0) {
+                $this->apiClient->triggerBoostRun($boostId);
+                $this->logger->info(sprintf(
+                    'CacheBoost: %d invalidated tags exceed the limit of %d — ' .
+                    'falling back to full boost run #%d instead of resolving them individually.',
+                    count($tags),
+                    self::MAX_TAGS,
+                    $boostId
+                ));
+                return;
+            }
+            $this->logger->warning(sprintf(
+                'CacheBoost: %d invalidated tags exceed the limit of %d and no Boost ID is configured — ' .
+                'only the first %d tags will be resolved. Configure a Boost ID under ' .
+                'Stores → Configuration → CacheBoost → Flush total to warm the full site instead.',
+                count($tags),
+                self::MAX_TAGS,
+                self::MAX_TAGS
+            ));
+            $tags = array_slice($tags, 0, self::MAX_TAGS);
+        }
+
+        $urls = $this->resolveTagsToUrls($tags);
         if (!empty($urls)) {
             $this->apiClient->triggerWarm($urls);
             $this->logger->info(sprintf(
                 'CacheBoost: triggered inline warm for %d URL(s) from %d tag(s).',
                 count($urls),
-                count($this->pendingTags)
+                count($tags)
             ));
         }
     }
