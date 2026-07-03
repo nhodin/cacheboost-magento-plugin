@@ -4,8 +4,8 @@ Automatically triggers a CacheBoost cache warm-up whenever a flush or invalidati
 
 - **Smart mode**: resolves Magento tags (product, category, CMS page) to URLs and triggers a targeted warm via `POST /v1/sites/{id}/warm`.
 - **Full Only mode**: always triggers a full scheduled Boost run.
-- **Deduplication**: multiple flush events within the same HTTP request produce a single API call.
-- **Non-blocking**: 3-second timeout max; exceptions never bubble up to Magento.
+- **Deduplication**: multiple flush events within the same HTTP request produce a single queue message.
+- **Fully asynchronous**: invalidation events only enqueue a message; tag resolution and API calls run in a background queue consumer, adding **zero latency** to customer or admin requests.
 - **History**: the 15 most recent warm runs (inline + full) are visible directly in the admin config panel.
 
 ---
@@ -62,6 +62,36 @@ bin/magento deploy:mode:set production
 bin/magento module:status CacheBoost_Warmer
 # Should output: Module is enabled
 ```
+
+---
+
+## Asynchronous warming (message queue)
+
+The module never calls the CacheBoost API during the request that invalidated the cache. Instead, invalidation events are buffered per request and published as a **single message** to the `cacheboost.warm` queue (MySQL-backed by default — no RabbitMQ required). A background consumer, `cacheboostWarmConsumer`, resolves the tags to URLs and performs the API calls.
+
+**On most installations nothing needs to be done**: Magento's cron starts registered consumers automatically (the `consumers_runner` setting in `app/etc/env.php` is enabled by default). Warming typically starts within a minute of the invalidation.
+
+To run the consumer manually (for testing or with a process supervisor):
+
+```bash
+bin/magento queue:consumers:start cacheboostWarmConsumer
+```
+
+### On Adobe Commerce Cloud
+
+Consumers are managed by the [`CRON_CONSUMERS_RUNNER`](https://experienceleague.adobe.com/en/docs/commerce-on-cloud/user-guide/configure/env/variables-deploy) variable. The default (`cron_run: true`) runs all consumers via cron, including this one. To pin it explicitly in `.magento.env.yaml`:
+
+```yaml
+stage:
+  deploy:
+    CRON_CONSUMERS_RUNNER:
+      cron_run: true
+      max_messages: 100
+      consumers:
+        - cacheboostWarmConsumer
+```
+
+> If your project uses RabbitMQ, the queue can be remapped from the `db` connection to `amqp` via the standard `queue` configuration in `env.php` — no module change needed.
 
 ---
 
@@ -158,7 +188,7 @@ The 15 most recent warm runs (inline and full) appear automatically once the API
 | `clean_cache_after_reindex` | End of a reindex | Full Boost run |
 | `clean_cache_by_tags` | Product/category/CMS page save, etc. | Targeted warm (Smart) or full Boost run (Full Only) |
 
-`clean_cache_by_tags` events are **buffered**: if 20 products are saved in the same request, a single API call is made with all resolved URLs.
+`clean_cache_by_tags` events are **buffered**: if 20 products are saved in the same request, a single queue message is published, and the consumer makes a single API call with all resolved URLs. If more than 500 tags are invalidated at once (e.g. a large partial reindex), the consumer falls back to the full scheduled Boost instead of resolving them individually.
 
 ## Tag resolution in Smart mode
 
@@ -201,7 +231,7 @@ vendor/bin/phpunit
 
 > In production, use `composer install --no-dev` to skip test dependencies.
 
-Tests cover `Config`, `ApiClient`, and `UrlCollector`. All Magento framework dependencies are replaced by lightweight stubs in `tests/stubs.php`, so the suite runs anywhere PHP 8.1+ and Composer are available.
+Tests cover `Config`, `ApiClient`, `UrlCollector`, `TagUrlResolver`, and the `WarmConsumer` queue consumer. All Magento framework dependencies are replaced by lightweight stubs in `tests/stubs.php`, so the suite runs anywhere PHP 8.1+ and Composer are available.
 
 ---
 
@@ -227,8 +257,11 @@ Make sure a Boost ID is set in the "Full Flush" section and that the API key has
 **Targeted warm does not trigger after saving a product.**
 Check that the mode is set to `Smart`, that the product has URLs generated in the `url_rewrite` table, and that the API key has the `boosts:write` scope.
 
-**Timeout or slowness when saving in the admin.**
-The timeout is 3 seconds. If the CacheBoost API is unreachable from your server (firewall, network), the call will block for that duration. Check network connectivity to `api.cache-boost.com`.
+**Nothing is warmed even though messages are queued.**
+The queue consumer may not be running. Check `bin/magento queue:consumers:list` includes `cacheboostWarmConsumer`, verify Magento cron is running (`consumers_runner` in `app/etc/env.php`), or start it manually with `bin/magento queue:consumers:start cacheboostWarmConsumer`. Pending messages are visible in the `queue_message_status` table.
+
+**Warm requests fail once consumed.**
+The API timeout is 3 seconds per call, performed by the background consumer (never by customer requests). If the CacheBoost API is unreachable from your server (firewall, network), check connectivity to `api.cache-boost.com` and look for `CacheBoost:` errors in `var/log/system.log`.
 
 ---
 

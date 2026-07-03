@@ -37,6 +37,36 @@ class CurlFactory
     public function create(array $data = []): Curl { return new Curl(); }
 }
 
+namespace Magento\Framework\MessageQueue;
+
+interface PublisherInterface
+{
+    public function publish($topicName, $data);
+}
+
+namespace Magento\Framework\Serialize\Serializer;
+
+class Json
+{
+    public function serialize($data): string
+    {
+        $result = json_encode($data);
+        if ($result === false) {
+            throw new \InvalidArgumentException('Unable to serialize value.');
+        }
+        return $result;
+    }
+
+    public function unserialize($string)
+    {
+        $result = json_decode((string) $string, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \InvalidArgumentException('Unable to unserialize value.');
+        }
+        return $result;
+    }
+}
+
 namespace Magento\Framework\App;
 
 interface CacheInterface
