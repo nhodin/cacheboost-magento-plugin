@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework-message-queue:etc/consumer.xsd">
+
+    <!-- Started automatically by Magento cron (consumers_runner) or explicitly with
+         bin/magento queue:consumers:start cacheboostWarmConsumer.
+         maxMessages bounds the process lifetime so memory is reclaimed regularly. -->
+    <consumer name="cacheboostWarmConsumer"
+              queue="cacheboost.warm"
+              connection="db"
+              handler="CacheBoost\Warmer\Model\Queue\WarmConsumer::process"
+              maxMessages="100"/>
+
+</config>

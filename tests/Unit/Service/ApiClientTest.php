@@ -220,20 +220,42 @@ class ApiClientTest extends TestCase
 
     // ── ping ─────────────────────────────────────────────────────────────────
 
-    public function testPingReturnsFalseWhenNotConfigured(): void
+    public function testPingReturnsFalseWhenApiKeyIsEmpty(): void
     {
-        $this->config->method('isConfigured')->willReturn(false);
+        $config = $this->createMock(Config::class);
+        $config->method('getApiEndpoint')->willReturn('https://api.cache-boost.com');
+        $config->method('getApiKey')->willReturn('');
 
-        $result = $this->client->ping();
+        $curlFactory = $this->createMock(CurlFactory::class);
+        $curlFactory->method('create')->willReturn($this->curl);
+        $client = new ApiClient($config, $curlFactory, $this->logger);
+
+        $this->curl->expects(self::never())->method('get');
+
+        $result = $client->ping();
 
         self::assertFalse($result['success']);
         self::assertStringContainsString('not configured', $result['message']);
     }
 
+    public function testPingWorksWhenKeySetButModuleDisabled(): void
+    {
+        // Merchants validate their API key BEFORE switching Enable to Yes:
+        // ping must only require the key, not the full isConfigured() state.
+        $this->config->method('isEnabled')->willReturn(false);
+        $this->config->method('isConfigured')->willReturn(false);
+        $this->curl->method('getStatus')->willReturn(200);
+        $this->curl->method('getBody')->willReturn(json_encode(['scopes' => ['warm']]));
+
+        $result = $this->client->ping();
+
+        self::assertTrue($result['success']);
+        self::assertSame(['warm'], $result['scopes']);
+    }
+
     /** @dataProvider pingStatusProvider */
     public function testPingMapsHttpStatusToSuccess(int $status, bool $expectedSuccess): void
     {
-        $this->config->method('isConfigured')->willReturn(true);
         $this->curl->method('getStatus')->willReturn($status);
         $this->curl->method('getBody')->willReturn('');
 
@@ -256,7 +278,6 @@ class ApiClientTest extends TestCase
 
     public function testPingReturnsFalseOnException(): void
     {
-        $this->config->method('isConfigured')->willReturn(true);
         $this->curl->method('setTimeout')->willThrowException(new \RuntimeException('Refused'));
 
         $result = $this->client->ping();

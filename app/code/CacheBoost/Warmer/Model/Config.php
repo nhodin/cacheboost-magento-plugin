@@ -62,10 +62,19 @@ class Config
         return (int) $this->scopeConfig->getValue(self::XML_BOOST_ID);
     }
 
+    /**
+     * True when API credentials are present, regardless of the Enable flag.
+     * Used by "Test connection" so merchants can validate their key before
+     * switching the module on.
+     */
+    public function hasCredentials(): bool
+    {
+        return $this->getApiKey() !== ''
+            && $this->getSiteId() > 0;
+    }
+
     public function isConfigured(): bool
     {
-        return $this->isEnabled()
-            && $this->getApiKey() !== ''
-            && $this->getSiteId() > 0;
+        return $this->isEnabled() && $this->hasCredentials();
     }
 }

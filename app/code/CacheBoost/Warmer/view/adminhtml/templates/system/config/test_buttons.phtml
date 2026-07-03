@@ -1,0 +1,104 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * "Tests & Diagnostic" panel: three test buttons calling the AJAX controller.
+ *
+ * @var \CacheBoost\Warmer\Block\Adminhtml\TestButton $block
+ * @var \Magento\Framework\Escaper $escaper
+ */
+
+$buttons = [
+    ['icon' => '🔌', 'label' => __('Test connection'), 'url' => $block->getActionUrl('connection'), 'background' => '#1565c0'],
+    ['icon' => '🔥', 'label' => __('Test inline warm'), 'url' => $block->getActionUrl('warm'), 'background' => '#2e7d32'],
+    ['icon' => '🚀', 'label' => __('Test Boost run'), 'url' => $block->getActionUrl('boost_run'), 'background' => '#6a1b9a'],
+];
+
+// Translatable strings and the form key are passed to JS as JSON literals.
+$i18nJson = json_encode([
+    'loading' => (string) __('Testing…'),
+    'unexpected' => (string) __('Unexpected server response.'),
+]);
+$formKeyJson = json_encode($block->getFormKeyValue());
+
+$scriptJs = <<<JS
+(function () {
+    'use strict';
+
+    var i18n = {$i18nJson};
+    var formKey = {$formKeyJson};
+    var panel = document.getElementById('cacheboost-test-panel');
+    var result = document.getElementById('cacheboost-test-result');
+
+    function runTest(url) {
+        result.style.display = 'block';
+        result.style.background = '#e3f2fd';
+        result.style.border = '1px solid #90caf9';
+        result.style.color = '#1565c0';
+        result.textContent = '⏳ ' + i18n.loading;
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', url, true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState !== 4) {
+                return;
+            }
+            try {
+                var data = JSON.parse(xhr.responseText);
+                if (data.success) {
+                    result.style.background = '#e8f5e9';
+                    result.style.border = '1px solid #a5d6a7';
+                    result.style.color = '#2e7d32';
+                    result.textContent = '✅ ' + data.message;
+                } else {
+                    result.style.background = '#ffebee';
+                    result.style.border = '1px solid #ef9a9a';
+                    result.style.color = '#c62828';
+                    result.textContent = '❌ ' + data.message;
+                }
+            } catch (e) {
+                result.style.background = '#ffebee';
+                result.style.border = '1px solid #ef9a9a';
+                result.style.color = '#c62828';
+                result.textContent = '❌ ' + i18n.unexpected;
+            }
+        };
+        xhr.send('form_key=' + encodeURIComponent(formKey));
+    }
+
+    Array.prototype.forEach.call(
+        panel.querySelectorAll('button[data-cacheboost-url]'),
+        function (button) {
+            button.addEventListener('click', function () {
+                runTest(button.getAttribute('data-cacheboost-url'));
+            });
+        }
+    );
+})();
+JS;
+?>
+<div id="cacheboost-test-panel"
+     style="background:#fafafa;border:1px solid #e0e0e0;border-radius:4px;padding:16px 20px">
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <?php foreach ($buttons as $button): ?>
+            <button type="button"
+                    data-cacheboost-url="<?= $escaper->escapeUrl($button['url']) ?>"
+                    style="padding:7px 14px;background:<?= $escaper->escapeHtmlAttr($button['background']) ?>;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:13px">
+                <?= $escaper->escapeHtml($button['icon']) ?> <?= $escaper->escapeHtml($button['label']) ?>
+            </button>
+        <?php endforeach; ?>
+    </div>
+
+    <div id="cacheboost-test-result"
+         style="display:none;padding:10px 14px;border-radius:3px;font-size:13px;line-height:1.5"></div>
+</div>
+<?= /* @noEscape */ $block->getSecureRenderer()->renderTag(
+    'script',
+    ['type' => 'text/javascript'],
+    $scriptJs,
+    false
+) ?>

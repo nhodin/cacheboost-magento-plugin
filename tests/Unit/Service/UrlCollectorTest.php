@@ -5,53 +5,45 @@ declare(strict_types=1);
 namespace CacheBoost\Warmer\Test\Unit\Service;
 
 use CacheBoost\Warmer\Model\Config;
-use CacheBoost\Warmer\Service\ApiClient;
 use CacheBoost\Warmer\Service\UrlCollector;
-use Magento\Store\Api\Data\StoreInterface;
-use Magento\Store\Model\StoreManagerInterface;
-use Magento\UrlRewrite\Model\UrlFinderInterface;
-use Magento\UrlRewrite\Service\V1\Data\UrlRewrite;
+use Magento\Framework\MessageQueue\PublisherInterface;
+use Magento\Framework\Serialize\Serializer\Json;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 class UrlCollectorTest extends TestCase
 {
     private Config $config;
-    private ApiClient $apiClient;
-    private UrlFinderInterface $urlFinder;
-    private StoreManagerInterface $storeManager;
+    private PublisherInterface $publisher;
     private LoggerInterface $logger;
     private UrlCollector $collector;
 
     protected function setUp(): void
     {
-        $this->config       = $this->createMock(Config::class);
-        $this->apiClient    = $this->createMock(ApiClient::class);
-        $this->urlFinder    = $this->createMock(UrlFinderInterface::class);
-        $this->storeManager = $this->createMock(StoreManagerInterface::class);
-        $this->logger       = $this->createMock(LoggerInterface::class);
+        $this->config    = $this->createMock(Config::class);
+        $this->publisher = $this->createMock(PublisherInterface::class);
+        $this->logger    = $this->createMock(LoggerInterface::class);
 
         $this->collector = new UrlCollector(
             $this->config,
-            $this->apiClient,
-            $this->urlFinder,
-            $this->storeManager,
+            $this->publisher,
+            new Json(),
             $this->logger
         );
     }
 
-    // ── collectTags ──────────────────────────────────────────────────────────
-
-    public function testCollectTagsIgnoresNonStringValues(): void
+    /** Asserts the next publish() call carries exactly this payload. */
+    private function expectPublishedPayload(array $expected): void
     {
-        $this->config->method('isConfigured')->willReturn(true);
-        $this->config->method('getMode')->willReturn('smart');
-        $this->storeManager->method('getStores')->willReturn([]);
-        $this->apiClient->expects(self::never())->method('triggerWarm');
-
-        // Should not crash on mixed types; only the string 'cat_p_1' is kept.
-        $this->collector->collectTags([123, null, 'cat_p_1', true]);
-        $this->collector->flush();
+        $this->publisher->expects(self::once())
+            ->method('publish')
+            ->with(
+                UrlCollector::TOPIC,
+                self::callback(function (string $message) use ($expected): bool {
+                    self::assertSame($expected, json_decode($message, true));
+                    return true;
+                })
+            );
     }
 
     // ── flush – guard conditions ─────────────────────────────────────────────
@@ -59,53 +51,37 @@ class UrlCollectorTest extends TestCase
     public function testFlushDoesNothingWhenNotConfigured(): void
     {
         $this->config->method('isConfigured')->willReturn(false);
-        $this->apiClient->expects(self::never())->method('triggerWarm');
-        $this->apiClient->expects(self::never())->method('triggerBoostRun');
+        $this->publisher->expects(self::never())->method('publish');
 
+        $this->collector->markFullFlush();
         $this->collector->flush();
     }
 
     public function testFlushIsIdempotent(): void
     {
         $this->config->method('isConfigured')->willReturn(true);
-        $this->config->method('getBoostId')->willReturn(3);
-        // triggerBoostRun must be called exactly once despite two flush() calls.
-        $this->apiClient->expects(self::once())->method('triggerBoostRun');
+        // publish must be called exactly once despite two flush() calls.
+        $this->publisher->expects(self::once())->method('publish');
 
         $this->collector->markFullFlush();
         $this->collector->flush();
         $this->collector->flush();
     }
 
-    public function testFlushSkipsWarmWhenNoTagsAndNoFullFlush(): void
+    public function testFlushPublishesNothingWhenNoTagsAndNoFullFlush(): void
     {
         $this->config->method('isConfigured')->willReturn(true);
-        $this->apiClient->expects(self::never())->method('triggerWarm');
-        $this->apiClient->expects(self::never())->method('triggerBoostRun');
+        $this->publisher->expects(self::never())->method('publish');
 
         $this->collector->flush();
     }
 
-    // ── flush – full flush ───────────────────────────────────────────────────
+    // ── flush – payloads ─────────────────────────────────────────────────────
 
-    public function testFlushTriggersBoostRunOnFullFlush(): void
+    public function testFullFlushPublishesFullFlushPayload(): void
     {
         $this->config->method('isConfigured')->willReturn(true);
-        $this->config->method('getBoostId')->willReturn(7);
-        $this->apiClient->expects(self::once())
-            ->method('triggerBoostRun')
-            ->with(7);
-
-        $this->collector->markFullFlush();
-        $this->collector->flush();
-    }
-
-    public function testFlushLogsInfoWhenFullFlushHasNoBoostId(): void
-    {
-        $this->config->method('isConfigured')->willReturn(true);
-        $this->config->method('getBoostId')->willReturn(0);
-        $this->apiClient->expects(self::never())->method('triggerBoostRun');
-        $this->logger->expects(self::once())->method('info');
+        $this->expectPublishedPayload(['full_flush' => true, 'tags' => [], 'truncated' => false]);
 
         $this->collector->markFullFlush();
         $this->collector->flush();
@@ -114,223 +90,81 @@ class UrlCollectorTest extends TestCase
     public function testFullFlushTakesPriorityOverPendingTags(): void
     {
         $this->config->method('isConfigured')->willReturn(true);
-        $this->config->method('getBoostId')->willReturn(7);
-        // Even with pending tags, a full flush must NOT call triggerWarm.
-        $this->apiClient->expects(self::never())->method('triggerWarm');
-        $this->apiClient->expects(self::once())->method('triggerBoostRun');
+        $this->expectPublishedPayload(['full_flush' => true, 'tags' => [], 'truncated' => false]);
 
         $this->collector->collectTags(['cat_p_1']);
         $this->collector->markFullFlush();
         $this->collector->flush();
     }
 
-    // ── flush – full_only mode ───────────────────────────────────────────────
-
-    public function testFlushTriggersBoostRunInFullOnlyMode(): void
+    public function testTagsArePublishedDeduplicated(): void
     {
         $this->config->method('isConfigured')->willReturn(true);
-        $this->config->method('getMode')->willReturn('full_only');
-        $this->config->method('getBoostId')->willReturn(9);
-        $this->apiClient->expects(self::once())->method('triggerBoostRun')->with(9);
-        $this->apiClient->expects(self::never())->method('triggerWarm');
-
-        $this->collector->collectTags(['cat_p_1']);
-        $this->collector->flush();
-    }
-
-    public function testFlushSkipsApiCallInFullOnlyModeWhenNoBoostId(): void
-    {
-        $this->config->method('isConfigured')->willReturn(true);
-        $this->config->method('getMode')->willReturn('full_only');
-        $this->config->method('getBoostId')->willReturn(0);
-        $this->apiClient->expects(self::never())->method('triggerBoostRun');
-        $this->apiClient->expects(self::never())->method('triggerWarm');
-
-        $this->collector->collectTags(['cat_p_1']);
-        $this->collector->flush();
-    }
-
-    // ── flush – smart mode (URL resolution) ─────────────────────────────────
-
-    public function testFlushTriggersWarmWithResolvedUrls(): void
-    {
-        $this->config->method('isConfigured')->willReturn(true);
-        $this->config->method('getMode')->willReturn('smart');
-
-        $store = $this->makeActiveStore('https://example.com', 1);
-        $this->storeManager->method('getStores')->willReturn([$store]);
-
-        $rewrite = $this->createMock(UrlRewrite::class);
-        $rewrite->method('getRequestPath')->willReturn('product-slug.html');
-        $this->urlFinder->method('findAllByData')->willReturn([$rewrite]);
-
-        $this->apiClient->expects(self::once())
-            ->method('triggerWarm')
-            ->with(['https://example.com/product-slug.html']);
-
-        $this->collector->collectTags(['cat_p_42']);
-        $this->collector->flush();
-    }
-
-    public function testFlushSkipsInactiveStores(): void
-    {
-        $this->config->method('isConfigured')->willReturn(true);
-        $this->config->method('getMode')->willReturn('smart');
-
-        $store = $this->createMock(StoreInterface::class);
-        $store->method('isActive')->willReturn(false);
-        $this->storeManager->method('getStores')->willReturn([$store]);
-
-        $this->apiClient->expects(self::never())->method('triggerWarm');
-
-        $this->collector->collectTags(['cat_p_1']);
-        $this->collector->flush();
-    }
-
-    public function testFlushDeduplicatesResolvedUrls(): void
-    {
-        $this->config->method('isConfigured')->willReturn(true);
-        $this->config->method('getMode')->willReturn('smart');
-
-        $store = $this->makeActiveStore('https://example.com', 1);
-        $this->storeManager->method('getStores')->willReturn([$store]);
-
-        // Both tags resolve to the same URL via the finder.
-        $rewrite = $this->createMock(UrlRewrite::class);
-        $rewrite->method('getRequestPath')->willReturn('page.html');
-        $this->urlFinder->method('findAllByData')->willReturn([$rewrite]);
-
-        $this->apiClient->expects(self::once())
-            ->method('triggerWarm')
-            ->with(['https://example.com/page.html']);
+        $this->expectPublishedPayload([
+            'full_flush' => false,
+            'tags'       => ['cat_p_1', 'cat_c_2'],
+            'truncated'  => false,
+        ]);
 
         $this->collector->collectTags(['cat_p_1', 'cat_c_2']);
+        $this->collector->collectTags(['cat_p_1']); // duplicate, ignored
         $this->collector->flush();
     }
 
-    public function testFlushSkipsStoresOnOtherDomains(): void
+    public function testCollectTagsIgnoresNonStringValues(): void
     {
-        // The API rejects the whole batch if any URL is outside the registered
-        // site domain: stores served on another domain must be excluded.
         $this->config->method('isConfigured')->willReturn(true);
-        $this->config->method('getMode')->willReturn('smart');
+        $this->expectPublishedPayload([
+            'full_flush' => false,
+            'tags'       => ['cat_p_1'],
+            'truncated'  => false,
+        ]);
 
-        $mainStore  = $this->makeActiveStore('https://example.com', 1);
-        $otherStore = $this->makeActiveStore('https://other-domain.com', 2);
-        $this->storeManager->method('getStores')->willReturn([$mainStore, $otherStore]);
-        $this->storeManager->method('getDefaultStoreView')->willReturn($mainStore);
+        // Should not crash on mixed types; only the string 'cat_p_1' is kept.
+        $this->collector->collectTags([123, null, 'cat_p_1', true]);
+        $this->collector->flush();
+    }
 
-        $rewrite = $this->createMock(UrlRewrite::class);
-        $rewrite->method('getRequestPath')->willReturn('page.html');
-        $this->urlFinder->method('findAllByData')->willReturn([$rewrite]);
+    // ── flush – MAX_TAGS cap ─────────────────────────────────────────────────
 
-        $this->apiClient->expects(self::once())
-            ->method('triggerWarm')
-            ->with(['https://example.com/page.html']);
+    public function testFlushTruncatesTagsAboveTheCap(): void
+    {
+        // 501 tags collected → message carries the first 500 with truncated=true,
+        // so the consumer can decide to fall back to a full Boost run.
+        $this->config->method('isConfigured')->willReturn(true);
+        $this->logger->expects(self::atLeastOnce())->method('info');
+
+        $this->publisher->expects(self::once())
+            ->method('publish')
+            ->with(
+                UrlCollector::TOPIC,
+                self::callback(function (string $message): bool {
+                    $payload = json_decode($message, true);
+                    self::assertFalse($payload['full_flush']);
+                    self::assertTrue($payload['truncated']);
+                    self::assertCount(500, $payload['tags']);
+                    self::assertSame('cat_p_1', $payload['tags'][0]);
+                    self::assertSame('cat_p_500', $payload['tags'][499]);
+                    return true;
+                })
+            );
+
+        $tags = array_map(static fn(int $i) => "cat_p_{$i}", range(1, 501));
+        $this->collector->collectTags($tags);
+        $this->collector->flush();
+    }
+
+    // ── flush – publish failures ─────────────────────────────────────────────
+
+    public function testPublishFailureIsLoggedAndNeverThrows(): void
+    {
+        // A broken queue must never break the request that flushed the cache.
+        $this->config->method('isConfigured')->willReturn(true);
+        $this->publisher->method('publish')
+            ->willThrowException(new \RuntimeException('queue is down'));
+        $this->logger->expects(self::once())->method('error');
 
         $this->collector->collectTags(['cat_p_1']);
         $this->collector->flush();
-    }
-
-    public function testFlushSkipsWarmWhenNoUrlsResolved(): void
-    {
-        $this->config->method('isConfigured')->willReturn(true);
-        $this->config->method('getMode')->willReturn('smart');
-
-        $store = $this->makeActiveStore('https://example.com', 1);
-        $this->storeManager->method('getStores')->willReturn([$store]);
-        $this->urlFinder->method('findAllByData')->willReturn([]);
-
-        $this->apiClient->expects(self::never())->method('triggerWarm');
-
-        $this->collector->collectTags(['cat_p_99']);
-        $this->collector->flush();
-    }
-
-    // ── tag pattern routing ──────────────────────────────────────────────────
-
-    /** @dataProvider tagPatternProvider */
-    public function testTagPatternsRouteToCorrectEntityType(
-        string $tag,
-        string $expectedEntityType,
-        int $expectedEntityId
-    ): void {
-        $this->config->method('isConfigured')->willReturn(true);
-        $this->config->method('getMode')->willReturn('smart');
-
-        $store = $this->makeActiveStore('https://example.com', 1);
-        $this->storeManager->method('getStores')->willReturn([$store]);
-
-        $rewrite = $this->createMock(UrlRewrite::class);
-        $rewrite->method('getRequestPath')->willReturn('path.html');
-
-        $this->urlFinder->expects(self::once())
-            ->method('findAllByData')
-            ->with(self::callback(function (array $data) use ($expectedEntityType, $expectedEntityId): bool {
-                return $data[UrlRewrite::ENTITY_TYPE] === $expectedEntityType
-                    && $data[UrlRewrite::ENTITY_ID]   === $expectedEntityId;
-            }))
-            ->willReturn([$rewrite]);
-
-        $this->collector->collectTags([$tag]);
-        $this->collector->flush();
-    }
-
-    public static function tagPatternProvider(): array
-    {
-        return [
-            'product tag'  => ['cat_p_42', 'product',  42],
-            'category tag' => ['cat_c_10', 'category', 10],
-            'cms page tag' => ['cms_p_5',  'cms-page', 5],
-        ];
-    }
-
-    public function testCmsBlockTagProducesNoUrlLookup(): void
-    {
-        $this->config->method('isConfigured')->willReturn(true);
-        $this->config->method('getMode')->willReturn('smart');
-        // No stores needed — code returns before reaching getStores when entities is empty.
-        $this->urlFinder->expects(self::never())->method('findAllByData');
-        $this->apiClient->expects(self::never())->method('triggerWarm');
-
-        $this->collector->collectTags(['cms_b_3']);
-        $this->collector->flush();
-    }
-
-    public function testUnknownTagsProduceNoUrlLookup(): void
-    {
-        $this->config->method('isConfigured')->willReturn(true);
-        $this->config->method('getMode')->willReturn('smart');
-        $this->urlFinder->expects(self::never())->method('findAllByData');
-        $this->apiClient->expects(self::never())->method('triggerWarm');
-
-        $this->collector->collectTags(['FPC', 'CONFIG', 'some_random_tag']);
-        $this->collector->flush();
-    }
-
-    public function testUrlFinderExceptionIsHandledGracefully(): void
-    {
-        $this->config->method('isConfigured')->willReturn(true);
-        $this->config->method('getMode')->willReturn('smart');
-
-        $store = $this->makeActiveStore('https://example.com', 1);
-        $this->storeManager->method('getStores')->willReturn([$store]);
-        $this->urlFinder->method('findAllByData')->willThrowException(new \RuntimeException('DB error'));
-        $this->logger->expects(self::once())->method('warning');
-        $this->apiClient->expects(self::never())->method('triggerWarm');
-
-        $this->collector->collectTags(['cat_p_1']);
-        $this->collector->flush();
-    }
-
-    // ── helpers ──────────────────────────────────────────────────────────────
-
-    private function makeActiveStore(string $baseUrl, int $id): StoreInterface
-    {
-        $store = $this->createMock(StoreInterface::class);
-        $store->method('isActive')->willReturn(true);
-        $store->method('getBaseUrl')->willReturn(rtrim($baseUrl, '/') . '/');
-        $store->method('getId')->willReturn($id);
-        return $store;
     }
 }
