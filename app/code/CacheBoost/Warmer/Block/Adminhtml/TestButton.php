@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace CacheBoost\Warmer\Block\Adminhtml;
 
-use Magento\Backend\Block\Template\Context;
 use Magento\Config\Block\System\Config\Form\Field;
 use Magento\Framework\Data\Form\Element\AbstractElement;
-use Magento\Framework\Data\Form\FormKey;
 
 /**
  * frontend_model for the "Tests & Diagnostic" panel in system.xml.
@@ -15,14 +13,6 @@ use Magento\Framework\Data\Form\FormKey;
  */
 class TestButton extends Field
 {
-    public function __construct(
-        Context $context,
-        private readonly FormKey $formKey,
-        array $data = []
-    ) {
-        parent::__construct($context, $data);
-    }
-
     /** @noinspection PhpUnusedParameterInspection */
     public function render(AbstractElement $element): string
     {
