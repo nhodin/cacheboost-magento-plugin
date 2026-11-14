@@ -9,13 +9,15 @@ use Magento\Framework\Encryption\EncryptorInterface;
 
 class Config
 {
-    private const XML_ENABLED      = 'cacheboost/general/enabled';
-    private const XML_API_KEY      = 'cacheboost/general/api_key';
-    private const XML_SITE_ID      = 'cacheboost/general/site_id';
-    private const XML_REGION       = 'cacheboost/general/region';
-    private const XML_MODE         = 'cacheboost/general/mode';
-    private const XML_API_ENDPOINT = 'cacheboost/general/api_endpoint';
-    private const XML_BOOST_ID     = 'cacheboost/flush_all/boost_id';
+    public const XML_ENABLED           = 'cacheboost/general/enabled';
+    public const XML_API_KEY           = 'cacheboost/general/api_key';
+    public const XML_SITE_ID           = 'cacheboost/general/site_id';
+    public const XML_REGION            = 'cacheboost/general/region';
+    public const XML_AVAILABLE_REGIONS = 'cacheboost/general/available_regions';
+    private const XML_MODE             = 'cacheboost/general/mode';
+    private const XML_API_ENDPOINT     = 'cacheboost/general/api_endpoint';
+    public const XML_BOOST_ID          = 'cacheboost/flush_all/boost_id';
+    public const XML_SHARE_ENVIRONMENT = 'cacheboost/diagnostics/share_environment';
     private const XML_PROCESSING   = 'cacheboost/processing/mode';
 
     /** How queued warm requests are processed (see Model\Queue\ProcessingStrategy). */
@@ -69,6 +71,24 @@ class Config
     {
         $value = rtrim((string) $this->scopeConfig->getValue(self::XML_API_ENDPOINT), '/');
         return $value !== '' ? $value : self::DEFAULT_API_ENDPOINT;
+    }
+
+    /**
+     * Regions offered by the CacheBoost account (GET /v1/me), saved by Connect and Test connection.
+     *
+     * @return string[]
+     */
+    public function getAvailableRegions(): array
+    {
+        $raw = (string) $this->scopeConfig->getValue(self::XML_AVAILABLE_REGIONS);
+        return array_values(array_filter(array_map('trim', explode(',', $raw))));
+    }
+
+    /** Share the cache configuration with CacheBoost for the cache diagnostics (on by default). */
+    public function isEnvironmentSharingEnabled(): bool
+    {
+        $value = $this->scopeConfig->getValue(self::XML_SHARE_ENVIRONMENT);
+        return $value === null || $value === '' ? true : (bool) (int) $value;
     }
 
     public function getBoostId(): int

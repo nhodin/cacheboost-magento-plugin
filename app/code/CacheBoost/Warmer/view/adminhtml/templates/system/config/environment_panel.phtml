@@ -1,0 +1,39 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * "Cache Diagnostics" panel (no JavaScript).
+ *
+ * @var \CacheBoost\Warmer\Block\Adminhtml\EnvironmentPanel $block
+ * @var \Magento\Framework\Escaper $escaper
+ */
+$state = $block->getState();
+?>
+<div style="background:#fafafa;border:1px solid #e0e0e0;border-radius:4px;padding:16px 20px;font-size:13px;line-height:1.6">
+    <p style="margin:0 0 8px">
+        <?= $escaper->escapeHtml(__('What is shared: Magento and PHP versions, edition and deploy mode, full page cache application, TTL and number of Varnish purge hosts, enabled and invalidated cache types, kind of cache and session backend, number of websites, store views, domains and currencies, whether the store code is in URLs, cache-related modules (Fastly, cache warmers) and the CacheBoost settings.')) ?>
+    </p>
+    <p style="margin:0 0 12px;color:#555">
+        <?= $escaper->escapeHtml(__('Never shared: hosts, IP addresses, ports, passwords, keys or any customer data. Turning sharing off deletes what CacheBoost received.')) ?>
+    </p>
+    <?php if ($block->isConnected()): ?>
+        <table style="border-collapse:collapse;width:auto;margin-bottom:12px">
+            <tr>
+                <th style="text-align:left;font-weight:600;padding:3px 24px 3px 0"><?= $escaper->escapeHtml(__('Status')) ?></th>
+                <td><?= $escaper->escapeHtml($block->isSharing() ? $block->getStatusLabel((string) ($state['status'] ?? '')) : (string) __('sharing turned off')) ?></td>
+            </tr>
+            <tr>
+                <th style="text-align:left;font-weight:600;padding:3px 24px 3px 0"><?= $escaper->escapeHtml(__('Last sent')) ?></th>
+                <td><?= $escaper->escapeHtml($block->formatTime(isset($state['sent_at']) ? (int) $state['sent_at'] : null)) ?></td>
+            </tr>
+        </table>
+        <?php if ($block->isSharing()): ?>
+            <a href="<?= $escaper->escapeUrl($block->getSendUrl()) ?>" class="action-default" style="display:inline-block;text-decoration:none">
+                <span><?= $escaper->escapeHtml(__('Send now')) ?></span>
+            </a>
+        <?php endif; ?>
+    <?php else: ?>
+        <p style="margin:0;color:#777"><?= $escaper->escapeHtml(__('Connect to CacheBoost to share the cache configuration.')) ?></p>
+    <?php endif; ?>
+</div>

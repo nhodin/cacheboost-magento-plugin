@@ -14,4 +14,10 @@
                   instance="CacheBoost\Warmer\Observer\FlushAll"/>
     </event>
 
+    <!-- Save Config on the CacheBoost section: set up a new key, follow the snapshot settings -->
+    <event name="admin_system_config_changed_section_cacheboost">
+        <observer name="cacheboost_config_saved"
+                  instance="CacheBoost\Warmer\Observer\ConfigSaved"/>
+    </event>
+
 </config>

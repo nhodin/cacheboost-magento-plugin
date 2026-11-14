@@ -15,6 +15,11 @@
             <group id="general" translate="label" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
                 <label>General</label>
 
+                <field id="connect" translate="label" sortOrder="5" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>CacheBoost account</label>
+                    <frontend_model>CacheBoost\Warmer\Block\Adminhtml\ConnectPanel</frontend_model>
+                </field>
+
                 <field id="enabled" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label>Enable CacheBoost</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
@@ -23,18 +28,20 @@
                 <field id="api_key" translate="label comment" type="obscure" sortOrder="20" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label>API Key</label>
                     <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
-                    <comment><![CDATA[CacheBoost Bearer token (format <code>cb_live_…</code>). Required scopes: <strong>boosts:read</strong>, <strong>boosts:write</strong>, <strong>runs:read</strong>. Generate your key at <a href="https://app.cache-boost.com/profile" target="_blank">app.cache-boost.com/profile</a>.]]></comment>
+                    <comment><![CDATA[Filled in automatically by "Connect to CacheBoost". You can also paste a key (format <code>cb_live_…</code>) generated in your <a href="https://app.cache-boost.com/profile" target="_blank" rel="noopener">CacheBoost profile</a>: scopes <strong>boosts:read</strong>, <strong>boosts:write</strong>, <strong>runs:read</strong>, plus <strong>sites:read</strong> to find the site and <strong>sites:write</strong> to validate the domain and share the cache configuration.]]></comment>
                 </field>
 
                 <field id="site_id" translate="label comment" type="text" sortOrder="30" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label>Site ID</label>
-                    <comment>Numeric identifier of your site in CacheBoost (e.g. 42). Visible under Stores → Sites in the CacheBoost application.</comment>
+                    <comment>Filled in automatically by "Connect to CacheBoost" and "Test connection" (the site whose domain is the default store view's). Numeric identifier of the site in CacheBoost.</comment>
                     <validate>validate-digits</validate>
                 </field>
 
-                <field id="region" translate="label comment" type="text" sortOrder="40" showInDefault="1" showInWebsite="0" showInStore="0">
-                    <label>Region(s)</label>
-                    <comment>Comma-separated region codes (e.g. fr or fr,eu). Must match the regions configured in your CacheBoost Boost.</comment>
+                <field id="region" translate="label comment" type="multiselect" sortOrder="40" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>Warm Regions</label>
+                    <source_model>CacheBoost\Warmer\Model\Config\Source\Region</source_model>
+                    <can_be_empty>1</can_be_empty>
+                    <comment>Regions your cache is warmed from. The list comes from your CacheBoost account: click "Test connection" to refresh it. Leave all unselected to use every available region.</comment>
                 </field>
 
                 <field id="mode" translate="label comment" type="select" sortOrder="50" showInDefault="1" showInWebsite="0" showInStore="0">
@@ -71,6 +78,23 @@
                 <field id="status" sortOrder="20" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label></label>
                     <frontend_model>CacheBoost\Warmer\Block\Adminhtml\ProcessingStatus</frontend_model>
+                </field>
+            </group>
+
+            <!-- ── Cache diagnostics (environment snapshot) ────────────────── -->
+            <group id="diagnostics" translate="label comment" sortOrder="24" showInDefault="1" showInWebsite="0" showInStore="0">
+                <label>Cache Diagnostics</label>
+                <comment><![CDATA[CacheBoost's cache diagnostics cannot read your server configuration. The module sends a summary of it when it changes, so the diagnostics can explain cache MISSes (full page cache off, Varnish not used, cache types disabled…).]]></comment>
+
+                <field id="share_environment" translate="label comment" type="select" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>Share the cache configuration with CacheBoost</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>On by default once connected. Turning it off asks CacheBoost to delete what it received.</comment>
+                </field>
+
+                <field id="status" sortOrder="20" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label></label>
+                    <frontend_model>CacheBoost\Warmer\Block\Adminhtml\EnvironmentPanel</frontend_model>
                 </field>
             </group>
 

@@ -9,5 +9,13 @@
              method="execute">
             <schedule>* * * * *</schedule>
         </job>
+
+        <!-- Cache configuration snapshot for the cache diagnostics (Model\Environment\EnvironmentReporter):
+             sends when scheduled or hourly, only when it changed. -->
+        <job name="cacheboost_environment_snapshot"
+             instance="CacheBoost\Warmer\Cron\ReportEnvironment"
+             method="execute">
+            <schedule>*/5 * * * *</schedule>
+        </job>
     </group>
 </config>

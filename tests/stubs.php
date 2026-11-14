@@ -5,6 +5,11 @@
 
 namespace Magento\Framework\App\Config;
 
+interface ReinitableConfigInterface
+{
+    public function reinit();
+}
+
 interface ScopeConfigInterface
 {
     const SCOPE_TYPE_DEFAULT = 'default';
@@ -30,6 +35,7 @@ class Curl
     public function post(string $url, $params): void {}
     public function getStatus(): int { return 200; }
     public function getBody(): string { return ''; }
+    public function setOption($name, $value): void {}
 }
 
 class CurlFactory
@@ -160,14 +166,23 @@ interface StoreInterface
     public function isActive(): bool;
     public function getBaseUrl(): string;
     public function getId(): mixed;
+    public function getCode();
 }
 
 namespace Magento\Store\Model;
+
+interface ScopeInterface
+{
+    const SCOPE_STORE = 'store';
+    const SCOPE_STORES = 'stores';
+    const SCOPE_WEBSITE = 'website';
+}
 
 interface StoreManagerInterface
 {
     public function getStores(bool $withDefault = false, bool $codeKey = false): array;
     public function getDefaultStoreView(): ?\Magento\Store\Api\Data\StoreInterface;
+    public function getWebsites($withDefault = false, $codeKey = false);
 }
 
 namespace Magento\UrlRewrite\Model;
@@ -187,4 +202,89 @@ class UrlRewrite
     const REDIRECT_TYPE = 'redirect_type';
 
     public function getRequestPath(): string { return ''; }
+}
+
+namespace Magento\Framework\App\Config\Storage;
+
+interface WriterInterface
+{
+    public function save($path, $value, $scope = 'default', $scopeId = 0);
+    public function delete($path, $scope = 'default', $scopeId = 0);
+}
+
+namespace Magento\Framework;
+
+interface UrlInterface
+{
+    const URL_TYPE_LINK = 'link';
+    const URL_TYPE_WEB = 'web';
+}
+
+namespace Magento\Framework\App\Cache;
+
+interface StateInterface
+{
+    public function isEnabled($cacheType);
+}
+
+interface TypeListInterface
+{
+    public function getTypes();
+    public function getInvalidated();
+    public function cleanType($typeCode);
+}
+
+namespace Magento\Framework\App;
+
+interface ProductMetadataInterface
+{
+    public function getVersion();
+    public function getEdition();
+    public function getName();
+}
+
+class State
+{
+    public function getMode() { return 'production'; }
+}
+
+class MaintenanceMode
+{
+    public function isOn($remoteAddr = '') { return false; }
+}
+
+namespace Magento\Framework\Module;
+
+interface ModuleListInterface
+{
+    public function getAll();
+    public function getOne($name);
+    public function getNames();
+    public function has($name);
+}
+
+class FullModuleList
+{
+    public function has($name) { return false; }
+}
+
+class PackageInfo
+{
+    public function getVersion($moduleName) { return ''; }
+}
+
+
+namespace Magento\Framework;
+
+class DataObject
+{
+    public function __construct(private array $data = []) {}
+    public function getData($key = '') { return $key === '' ? $this->data : ($this->data[$key] ?? null); }
+}
+
+namespace Magento\Framework\Data;
+
+interface OptionSourceInterface
+{
+    public function toOptionArray();
 }
