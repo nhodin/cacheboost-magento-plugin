@@ -57,6 +57,23 @@
                 </field>
             </group>
 
+            <!-- ── Background processing ─────────────────────────────────── -->
+            <group id="processing" translate="label comment" sortOrder="22" showInDefault="1" showInWebsite="0" showInStore="0">
+                <label>Background Processing</label>
+                <comment><![CDATA[Warm requests are queued and processed in the background so that no customer or admin request waits on the CacheBoost API. Choose how the queue is processed on this server; the status below shows what is actually happening.]]></comment>
+
+                <field id="mode" translate="label comment" type="select" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>Processing Mode</label>
+                    <source_model>CacheBoost\Warmer\Model\Config\Source\ProcessingMode</source_model>
+                    <comment><![CDATA[<strong>Auto</strong> fits most servers: it uses the <code>cacheboostWarmConsumer</code> queue consumer when Magento's consumers runner starts it, and the module cron job otherwise (for example when <code>cron_consumers_runner</code> is disabled in <code>app/etc/env.php</code>). Choose <strong>Synchronous</strong> only if Magento cron does not run on this server.]]></comment>
+                </field>
+
+                <field id="status" sortOrder="20" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label></label>
+                    <frontend_model>CacheBoost\Warmer\Block\Adminhtml\ProcessingStatus</frontend_model>
+                </field>
+            </group>
+
             <!-- ── Tests & Diagnostic ────────────────────────────────────── -->
             <group id="test" translate="label" sortOrder="25" showInDefault="1" showInWebsite="0" showInStore="0">
                 <label>Tests &amp; Diagnostic</label>

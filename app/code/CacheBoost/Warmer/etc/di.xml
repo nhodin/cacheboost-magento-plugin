@@ -7,4 +7,12 @@
             </argument>
         </arguments>
     </type>
+
+    <!-- The consumer (and its TagUrlResolver/ApiClient graph) is only needed in
+         synchronous mode: a proxy keeps it off every invalidating request. -->
+    <type name="CacheBoost\Warmer\Service\UrlCollector">
+        <arguments>
+            <argument name="consumer" xsi:type="object">CacheBoost\Warmer\Model\Queue\WarmConsumer\Proxy</argument>
+        </arguments>
+    </type>
 </config>

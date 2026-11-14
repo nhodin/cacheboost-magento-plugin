@@ -238,4 +238,27 @@ class ConfigTest extends TestCase
 
         self::assertFalse($this->config->isConfigured());
     }
+
+    // ── getProcessingMode ────────────────────────────────────────────────────
+
+    public function testProcessingModeDefaultsToAuto(): void
+    {
+        $this->scopeConfig->method('getValue')->willReturn(null);
+
+        self::assertSame(Config::PROCESSING_AUTO, $this->config->getProcessingMode());
+    }
+
+    public function testProcessingModeReturnsKnownValue(): void
+    {
+        $this->scopeConfig->method('getValue')->willReturn('cron');
+
+        self::assertSame(Config::PROCESSING_CRON, $this->config->getProcessingMode());
+    }
+
+    public function testUnknownProcessingModeFallsBackToAuto(): void
+    {
+        $this->scopeConfig->method('getValue')->willReturn('daemon');
+
+        self::assertSame(Config::PROCESSING_AUTO, $this->config->getProcessingMode());
+    }
 }

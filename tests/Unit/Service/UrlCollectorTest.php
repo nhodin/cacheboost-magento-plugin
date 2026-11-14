@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace CacheBoost\Warmer\Test\Unit\Service;
 
 use CacheBoost\Warmer\Model\Config;
+use CacheBoost\Warmer\Model\Queue\ProcessingStrategy;
+use CacheBoost\Warmer\Model\Queue\WarmConsumer;
 use CacheBoost\Warmer\Service\UrlCollector;
 use Magento\Framework\MessageQueue\PublisherInterface;
 use Magento\Framework\Serialize\Serializer\Json;
@@ -16,6 +18,8 @@ class UrlCollectorTest extends TestCase
     private Config $config;
     private PublisherInterface $publisher;
     private LoggerInterface $logger;
+    private ProcessingStrategy $strategy;
+    private WarmConsumer $consumer;
     private UrlCollector $collector;
 
     protected function setUp(): void
@@ -23,12 +27,24 @@ class UrlCollectorTest extends TestCase
         $this->config    = $this->createMock(Config::class);
         $this->publisher = $this->createMock(PublisherInterface::class);
         $this->logger    = $this->createMock(LoggerInterface::class);
+        $this->strategy  = $this->createMock(ProcessingStrategy::class);
+        $this->consumer  = $this->createMock(WarmConsumer::class);
 
-        $this->collector = new UrlCollector(
+        // Default: queue-based processing (consumer or module cron).
+        $this->strategy->method('resolve')->willReturn(ProcessingStrategy::CONSUMER);
+
+        $this->collector = $this->newCollector($this->strategy);
+    }
+
+    private function newCollector(ProcessingStrategy $strategy): UrlCollector
+    {
+        return new UrlCollector(
             $this->config,
             $this->publisher,
             new Json(),
-            $this->logger
+            $this->logger,
+            $strategy,
+            $this->consumer
         );
     }
 
@@ -166,5 +182,74 @@ class UrlCollectorTest extends TestCase
 
         $this->collector->collectTags(['cat_p_1']);
         $this->collector->flush();
+    }
+
+    // ── processing strategy ──────────────────────────────────────────────────
+
+    public function testCronStrategyStillPublishesToTheQueue(): void
+    {
+        $strategy = $this->createMock(ProcessingStrategy::class);
+        $strategy->method('resolve')->willReturn(ProcessingStrategy::CRON);
+        $collector = $this->newCollector($strategy);
+
+        $this->config->method('isConfigured')->willReturn(true);
+        $this->consumer->expects(self::never())->method('process');
+        $this->expectPublishedPayload(['full_flush' => false, 'tags' => ['cat_p_1'], 'truncated' => false]);
+
+        $collector->collectTags(['cat_p_1']);
+        $collector->flush();
+    }
+
+    public function testSyncStrategyHandsPayloadToConsumerInsteadOfQueue(): void
+    {
+        $strategy = $this->createMock(ProcessingStrategy::class);
+        $strategy->method('resolve')->willReturn(ProcessingStrategy::SYNC);
+        $collector = $this->newCollector($strategy);
+
+        $this->config->method('isConfigured')->willReturn(true);
+        $this->publisher->expects(self::never())->method('publish');
+        // Tests run in CLI, where synchronous processing happens inline.
+        $this->consumer->expects(self::once())
+            ->method('process')
+            ->with(self::callback(function (string $message): bool {
+                self::assertSame(
+                    ['full_flush' => false, 'tags' => ['cat_p_1', 'cat_c_2'], 'truncated' => false],
+                    json_decode($message, true)
+                );
+                return true;
+            }));
+
+        $collector->collectTags(['cat_p_1', 'cat_c_2']);
+        $collector->flush();
+    }
+
+    public function testSyncStrategyKeepsFullFlushPriority(): void
+    {
+        $strategy = $this->createMock(ProcessingStrategy::class);
+        $strategy->method('resolve')->willReturn(ProcessingStrategy::SYNC);
+        $collector = $this->newCollector($strategy);
+
+        $this->config->method('isConfigured')->willReturn(true);
+        $this->consumer->expects(self::once())
+            ->method('process')
+            ->with(json_encode(['full_flush' => true, 'tags' => [], 'truncated' => false]));
+
+        $collector->collectTags(['cat_p_1']);
+        $collector->markFullFlush();
+        $collector->flush();
+    }
+
+    public function testStrategyFailureFallsBackToQueue(): void
+    {
+        $strategy = $this->createMock(ProcessingStrategy::class);
+        $strategy->method('resolve')->willThrowException(new \RuntimeException('env.php unreadable'));
+        $collector = $this->newCollector($strategy);
+
+        $this->config->method('isConfigured')->willReturn(true);
+        $this->consumer->expects(self::never())->method('process');
+        $this->publisher->expects(self::once())->method('publish');
+
+        $collector->markFullFlush();
+        $collector->flush();
     }
 }

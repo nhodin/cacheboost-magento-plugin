@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace CacheBoost\Warmer\Service;
 
 use CacheBoost\Warmer\Model\Config;
+use CacheBoost\Warmer\Model\Queue\ProcessingStrategy;
+use CacheBoost\Warmer\Model\Queue\WarmConsumer;
 use Magento\Framework\MessageQueue\PublisherInterface;
 use Magento\Framework\Serialize\Serializer\Json;
 use Psr\Log\LoggerInterface;
@@ -18,6 +20,10 @@ use Psr\Log\LoggerInterface;
  * the MySQL-backed queue. Tag→URL resolution and the CacheBoost API calls run
  * asynchronously in the cacheboost.warm consumer (Model\Queue\WarmConsumer),
  * so the customer/admin request that invalidated the cache never waits on them.
+ *
+ * In "Synchronous" processing mode (installations without cron) the message is
+ * handed to the consumer directly instead: inline in CLI, and from a shutdown
+ * function after the HTTP response has been sent on PHP-FPM / LiteSpeed.
  */
 class UrlCollector
 {
@@ -42,7 +48,9 @@ class UrlCollector
         private readonly Config $config,
         private readonly PublisherInterface $publisher,
         private readonly Json $json,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly ProcessingStrategy $strategy,
+        private readonly WarmConsumer $consumer
     ) {}
 
     public function markFullFlush(): void
@@ -91,7 +99,7 @@ class UrlCollector
 
         // Full flush takes priority over any buffered tags.
         if ($this->fullFlushPending) {
-            $this->publish(['full_flush' => true, 'tags' => [], 'truncated' => false]);
+            $this->dispatch(['full_flush' => true, 'tags' => [], 'truncated' => false]);
             return;
         }
 
@@ -112,7 +120,51 @@ class UrlCollector
             $truncated = true;
         }
 
-        $this->publish(['full_flush' => false, 'tags' => $tags, 'truncated' => $truncated]);
+        $this->dispatch(['full_flush' => false, 'tags' => $tags, 'truncated' => $truncated]);
+    }
+
+    private function dispatch(array $payload): void
+    {
+        try {
+            $sync = $this->strategy->resolve() === ProcessingStrategy::SYNC;
+        } catch (\Throwable $e) {
+            $this->logger->warning('CacheBoost: unable to resolve the processing strategy — ' . $e->getMessage());
+            $sync = false;
+        }
+
+        $sync ? $this->processSynchronously($payload) : $this->publish($payload);
+    }
+
+    /**
+     * Synchronous mode. In HTTP the work is deferred to a shutdown function that
+     * first closes the connection to the client, so the visitor still does not
+     * wait; the PHP worker stays busy for the duration of the API call instead.
+     * Without fastcgi_finish_request() (mod_php), the response is delayed by up
+     * to the API timeout — use a cron-based mode there whenever possible.
+     */
+    private function processSynchronously(array $payload): void
+    {
+        try {
+            $message = $this->json->serialize($payload);
+        } catch (\Throwable $e) {
+            $this->logger->error('CacheBoost: failed to encode warm request — ' . $e->getMessage());
+            return;
+        }
+
+        if (PHP_SAPI === 'cli') {
+            // CLI flushes already run at shutdown (see registerShutdownFallback()).
+            $this->consumer->process($message);
+            return;
+        }
+
+        register_shutdown_function(function () use ($message): void {
+            if (function_exists('fastcgi_finish_request')) {
+                fastcgi_finish_request();
+            } elseif (function_exists('litespeed_finish_request')) {
+                litespeed_finish_request();
+            }
+            $this->consumer->process($message);
+        });
     }
 
     /** Publishing must never break the request that triggered the invalidation. */

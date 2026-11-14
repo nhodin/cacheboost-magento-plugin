@@ -5,7 +5,8 @@ Automatically triggers a CacheBoost cache warm-up whenever a flush or invalidati
 - **Smart mode**: resolves Magento tags (product, category, CMS page) to URLs and triggers a targeted warm via `POST /v1/sites/{id}/warm`.
 - **Full Only mode**: always triggers a full scheduled Boost run.
 - **Deduplication**: multiple flush events within the same HTTP request produce a single queue message.
-- **Fully asynchronous**: invalidation events only enqueue a message; tag resolution and API calls run in a background queue consumer, adding **zero latency** to customer or admin requests.
+- **Fully asynchronous**: invalidation events only enqueue a message; tag resolution and API calls run in the background (queue consumer, or the module cron when consumers are not run), adding **zero latency** to customer or admin requests.
+- **Works on any hosting**: an Auto processing mode detects whether Magento runs the queue consumer and falls back to a cron job — or to synchronous processing when no cron is available.
 - **History**: the 15 most recent warm runs (inline + full) are visible directly in the admin config panel.
 
 ---
@@ -67,15 +68,37 @@ bin/magento module:status CacheBoost_Warmer
 
 ## Asynchronous warming (message queue)
 
-The module never calls the CacheBoost API during the request that invalidated the cache. Instead, invalidation events are buffered per request and published as a **single message** to the `cacheboost.warm` queue (MySQL-backed by default — no RabbitMQ required). A background consumer, `cacheboostWarmConsumer`, resolves the tags to URLs and performs the API calls.
+The module never calls the CacheBoost API during the request that invalidated the cache. Instead, invalidation events are buffered per request and published as a **single message** to the `cacheboost.warm` queue (MySQL-backed by default — no RabbitMQ required). The message is then processed in the background: tags are resolved to URLs and the CacheBoost API is called.
 
-**On most installations nothing needs to be done**: Magento's cron starts registered consumers automatically (the `consumers_runner` setting in `app/etc/env.php` is enabled by default). Warming typically starts within a minute of the invalidation.
+### Processing mode
 
-To run the consumer manually (for testing or with a process supervisor):
+**Stores → Configuration → CacheBoost → Background Processing → Processing Mode** decides who processes the queue, so the module works on every hosting setup:
+
+| Mode | Who processes the queue | When to use it |
+|---|---|---|
+| **Auto** (default) | The `cacheboostWarmConsumer` consumer when Magento's consumers runner starts it; otherwise the module's own cron job (`cacheboost_warm_drain_queue`, every minute) | Almost every installation — nothing to configure |
+| **Queue consumer only** | `cacheboostWarmConsumer` only, started by Magento cron or by a process supervisor | You run consumers under supervisord/systemd and want the module cron to stay out of the way |
+| **Cron job** | The module cron job, every minute | You disabled `cron_consumers_runner` and do not want long-running consumer processes |
+| **Synchronous** | The request itself, at shutdown — after the response is sent on PHP-FPM / LiteSpeed | Magento cron does not run at all on this server (last resort) |
+
+How **Auto** decides, from `app/etc/env.php`:
+
+- `cron_consumers_runner.cron_run` is `true` or absent (Magento's default) **and** `cron_consumers_runner.consumers` is empty or lists `cacheboostWarmConsumer` → the consumer is used. The module cron only steps in if messages stay unprocessed for more than 10 minutes (stuck or crashed consumer).
+- Otherwise (common on self-hosted servers, where hosts often set `cron_run => false`) → the module cron processes the queue. It leaves a 2-minute head start to a consumer you may run under a supervisor, so the two never fight over messages.
+
+Both paths only need the standard Magento cron (`bin/magento cron:install`), which Magento requires anyway for indexing.
+
+> **Synchronous mode caveat:** on PHP-FPM and LiteSpeed the visitor does not wait (the connection is closed before the API call), but the PHP worker stays busy for the duration of the call (3-second timeout). Under Apache mod_php the response itself is delayed. Prefer a cron-based mode whenever cron is available.
+
+The **Background Processing** panel shows the active strategy, the consumers runner state, pending messages, the last Magento cron run and the last queue processing by the module cron, and warns when Magento cron does not run or when messages are piling up.
+
+### Running the consumer yourself
 
 ```bash
 bin/magento queue:consumers:start cacheboostWarmConsumer
 ```
+
+Under supervisord/systemd, pair it with **Queue consumer only** (or keep **Auto**: the module cron never competes with a healthy consumer).
 
 ### On Adobe Commerce Cloud
 
@@ -91,7 +114,9 @@ stage:
         - cacheboostWarmConsumer
 ```
 
-> If your project uses RabbitMQ, the queue can be remapped from the `db` connection to `amqp` via the standard `queue` configuration in `env.php` — no module change needed.
+If your `consumers` list omits `cacheboostWarmConsumer`, **Auto** mode detects it and falls back to the module cron job.
+
+> If your project uses RabbitMQ, the queue can be remapped from the `db` connection to `amqp` via the standard `queue` configuration in `env.php` — no module change needed. Pending-message statistics are only shown for the `db` connection.
 
 ---
 
@@ -231,7 +256,7 @@ vendor/bin/phpunit
 
 > In production, use `composer install --no-dev` to skip test dependencies.
 
-Tests cover `Config`, `ApiClient`, `UrlCollector`, `TagUrlResolver`, and the `WarmConsumer` queue consumer. All Magento framework dependencies are replaced by lightweight stubs in `tests/stubs.php`, so the suite runs anywhere PHP 8.1+ and Composer are available.
+Tests cover `Config`, `ApiClient`, `UrlCollector`, `TagUrlResolver`, the `WarmConsumer` queue consumer, and the processing strategy (`ProcessingStrategy`, `QueueInspector`, `QueueDrainer`, `ProcessingDiagnostics`, the `DrainWarmQueue` cron job). All Magento framework dependencies are replaced by lightweight stubs in `tests/stubs.php`, so the suite runs anywhere PHP 8.1+ and Composer are available.
 
 ---
 
@@ -258,7 +283,7 @@ Make sure a Boost ID is set in the "Full Flush" section and that the API key has
 Check that the mode is set to `Smart`, that the product has URLs generated in the `url_rewrite` table, and that the API key has the `boosts:write` scope.
 
 **Nothing is warmed even though messages are queued.**
-The queue consumer may not be running. Check `bin/magento queue:consumers:list` includes `cacheboostWarmConsumer`, verify Magento cron is running (`consumers_runner` in `app/etc/env.php`), or start it manually with `bin/magento queue:consumers:start cacheboostWarmConsumer`. Pending messages are visible in the `queue_message_status` table.
+Open **Stores → Configuration → CacheBoost → Background Processing**: the status panel shows which strategy is active and flags the usual causes. Check that Magento cron runs (`bin/magento cron:install`, then look at the `cron_schedule` table); if it cannot run on this server, switch **Processing Mode** to **Synchronous**. With **Queue consumer only**, make sure `cacheboostWarmConsumer` is started by the consumers runner or by your supervisor. Pending messages are visible in the `queue_message_status` table.
 
 **Warm requests fail once consumed.**
 The API timeout is 3 seconds per call, performed by the background consumer (never by customer requests). If the CacheBoost API is unreachable from your server (firewall, network), check connectivity to `api.cache-boost.com` and look for `CacheBoost:` errors in `var/log/system.log`.

@@ -44,6 +44,73 @@ interface PublisherInterface
     public function publish($topicName, $data);
 }
 
+interface EnvelopeInterface
+{
+    public function getBody();
+    public function getProperties();
+}
+
+interface QueueInterface
+{
+    public function dequeue();
+    public function acknowledge(EnvelopeInterface $envelope);
+    public function subscribe($callback);
+    public function reject(EnvelopeInterface $envelope, $requeue = true, $rejectionMessage = null);
+    public function push(EnvelopeInterface $envelope);
+}
+
+interface QueueFactoryInterface
+{
+    public function create($queueName, $connectionName);
+}
+
+class MessageEncoder
+{
+    public function decode($topic, $message, $requestType = true)
+    {
+        return json_decode((string) $message, true);
+    }
+}
+
+namespace Magento\Framework\MessageQueue\Consumer\Config;
+
+interface ConsumerConfigItemInterface
+{
+    public function getName();
+    public function getQueue();
+    public function getConnection();
+}
+
+namespace Magento\Framework\MessageQueue\Consumer;
+
+interface ConfigInterface
+{
+    public function getConsumer($name);
+    public function getConsumers();
+}
+
+namespace Magento\Framework\App;
+
+class DeploymentConfig
+{
+    public function get($key = null, $defaultValue = null) { return $defaultValue; }
+}
+
+class ResourceConnection
+{
+    public function getConnection($resourceName = 'default') { return null; }
+    public function getTableName($modelEntity, $connectionName = 'default') { return (string) $modelEntity; }
+}
+
+namespace Magento\Framework;
+
+class FlagManager
+{
+    public function getFlagData($flagCode) { return null; }
+    public function saveFlag($flagCode, $value) { return true; }
+    public function deleteFlag($flagCode) { return true; }
+}
+
 namespace Magento\Framework\Serialize\Serializer;
 
 class Json
