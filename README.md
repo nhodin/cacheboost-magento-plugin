@@ -201,6 +201,25 @@ CacheBoost's cache diagnostics cannot read your server. With **Share the cache c
 
 The snapshot is checked every 5 minutes after a configuration save and hourly otherwise, and sent only when it changed (`cacheboost_environment_snapshot` cron job, endpoint `POST /v1/sites/{id}/environment`, scope `sites:write`). **Send now** resends it at once. Turning sharing off sends one `DELETE`, so CacheBoost deletes what it received.
 
+#### What the cache diagnostics check on Magento
+
+With the snapshot, CacheBoost's cache diagnostics (app.cache-boost.com › your site › Cache configuration) add a **Magento (origin)** section:
+
+| Criterion | Weight | Fails or warns when |
+|---|---|---|
+| Page cache is on | critical | the `full_page` cache type or the full page cache is off |
+| Production mode | major | Magento runs in developer or default mode (maintenance warns) |
+| Varnish or Fastly | major | the built-in page cache serves HITs from PHP (warning) |
+| Magento can purge Varnish | major | Varnish is used but no `http_cache_hosts` is declared: changed pages stay stale and warms reheat them |
+| Cache types | major | a cache type is disabled (fail) or invalidated (warning) |
+| Page cache lifetime vs boost interval | major | the public content cache lifetime is shorter than the interval between two scheduled boosts |
+| Cache storage | minor | the default cache (or the built-in page cache) is stored in files or the database instead of Redis/Valkey |
+| Single warmer | minor | Amasty Full Page Cache Warmer or Mirasvit Cache Warmer is enabled too |
+| Currencies | info | several currencies: each one is a cache variant, only the default one is warmed |
+| Module up to date | info | a newer CacheBoost module is available |
+
+Each failed criterion comes with the Magento admin path or `bin/magento` command that fixes it. On a site that is not Magento these criteria do not apply; on a Magento site without the module they are reported as "source missing".
+
 ### Tests & Diagnostic section
 
 Three buttons let you validate your configuration without leaving the admin:
