@@ -2,6 +2,8 @@
 
 Automatically triggers a CacheBoost cache warm-up whenever a flush or invalidation occurs in Magento 2.
 
+Product page: [www.cache-boost.com/magento](https://www.cache-boost.com/magento) ([français](https://www.cache-boost.com/fr/magento)).
+
 - **Smart mode**: resolves Magento tags (product, category, CMS page) to URLs and triggers a targeted warm via `POST /v1/sites/{id}/warm`.
 - **Full Only mode**: always triggers a full scheduled Boost run.
 - **Deduplication**: multiple flush events within the same HTTP request produce a single queue message.
