@@ -5,18 +5,39 @@ declare(strict_types=1);
 namespace CacheBoost\Warmer\Service;
 
 use CacheBoost\Warmer\Model\Config;
-use Magento\Store\Model\StoreManagerInterface;
-use Magento\UrlRewrite\Model\UrlFinderInterface;
-use Magento\UrlRewrite\Service\V1\Data\UrlRewrite;
+use CacheBoost\Warmer\Model\Queue\ProcessingStrategy;
+use CacheBoost\Warmer\Model\Queue\WarmConsumer;
+use Magento\Framework\MessageQueue\PublisherInterface;
+use Magento\Framework\Serialize\Serializer\Json;
 use Psr\Log\LoggerInterface;
 
 /**
- * Collects cache tags during the request and resolves them to URLs at flush time.
- * Acts as a per-request buffer: multiple flush events are batched into a single API call.
- * Shared as a singleton by the DI container.
+ * Collects cache tags during the request and publishes them as a single queue
+ * message at flush time. Acts as a per-request buffer: multiple flush events
+ * are batched into one message. Shared as a singleton by the DI container.
+ *
+ * Nothing expensive happens on the request path: publishing is one INSERT into
+ * the MySQL-backed queue. Tag→URL resolution and the CacheBoost API calls run
+ * asynchronously in the cacheboost.warm consumer (Model\Queue\WarmConsumer),
+ * so the customer/admin request that invalidated the cache never waits on them.
+ *
+ * In "Synchronous" processing mode (installations without cron) the message is
+ * handed to the consumer directly instead: inline in CLI, and from a shutdown
+ * function after the HTTP response has been sent on PHP-FPM / LiteSpeed.
  */
 class UrlCollector
 {
+    /** Queue topic consumed by Model\Queue\WarmConsumer (see etc/communication.xml). */
+    public const TOPIC = 'cacheboost.warm';
+
+    /**
+     * Maximum number of tags carried in a single message. Bounds both the
+     * message size and the consumer's DB work (one UrlFinder query per tag per
+     * store). Above the cap the message is flagged truncated and the consumer
+     * falls back to a full Boost run when one is configured.
+     */
+    private const MAX_TAGS = 500;
+
     /** @var array<string, true> */
     private array $pendingTags = [];
     private bool $fullFlushPending = false;
@@ -25,10 +46,11 @@ class UrlCollector
 
     public function __construct(
         private readonly Config $config,
-        private readonly ApiClient $apiClient,
-        private readonly UrlFinderInterface $urlFinder,
-        private readonly StoreManagerInterface $storeManager,
-        private readonly LoggerInterface $logger
+        private readonly PublisherInterface $publisher,
+        private readonly Json $json,
+        private readonly LoggerInterface $logger,
+        private readonly ProcessingStrategy $strategy,
+        private readonly WarmConsumer $consumer
     ) {}
 
     public function markFullFlush(): void
@@ -66,7 +88,7 @@ class UrlCollector
 
     /**
      * Called once at the end of the request (controller_front_send_response_before).
-     * Sends a single API call regardless of how many flush events fired.
+     * Publishes a single queue message regardless of how many flush events fired.
      */
     public function flush(): void
     {
@@ -75,18 +97,9 @@ class UrlCollector
         }
         $this->flushed = true;
 
-        // Full flush takes priority: trigger the configured scheduled Boost.
+        // Full flush takes priority over any buffered tags.
         if ($this->fullFlushPending) {
-            $boostId = $this->config->getBoostId();
-            if ($boostId > 0) {
-                $this->apiClient->triggerBoostRun($boostId);
-                $this->logger->info("CacheBoost: triggered boost run #{$boostId} (full flush).");
-            } else {
-                $this->logger->info(
-                    'CacheBoost: full flush event detected but no Boost ID is configured — skipped. ' .
-                    'Configure a Boost ID under Stores → Configuration → CacheBoost → Flush total.'
-                );
-            }
+            $this->dispatch(['full_flush' => true, 'tags' => [], 'truncated' => false]);
             return;
         }
 
@@ -94,101 +107,78 @@ class UrlCollector
             return;
         }
 
-        // In full_only mode, tag events also trigger the scheduled Boost.
-        if ($this->config->getMode() === 'full_only') {
-            $boostId = $this->config->getBoostId();
-            if ($boostId > 0) {
-                $this->apiClient->triggerBoostRun($boostId);
-                $this->logger->info("CacheBoost: triggered boost run #{$boostId} (full_only mode).");
-            }
-            return;
+        $tags = array_keys($this->pendingTags);
+        $truncated = false;
+        if (count($tags) > self::MAX_TAGS) {
+            $this->logger->info(sprintf(
+                'CacheBoost: %d invalidated tags exceed the limit of %d — message truncated, ' .
+                'the consumer will fall back to a full Boost run if one is configured.',
+                count($tags),
+                self::MAX_TAGS
+            ));
+            $tags = array_slice($tags, 0, self::MAX_TAGS);
+            $truncated = true;
         }
 
-        // Smart mode: resolve tags to URLs and trigger a targeted inline warm.
-        $urls = $this->resolveTagsToUrls(array_keys($this->pendingTags));
-        if (!empty($urls)) {
-            $this->apiClient->triggerWarm($urls);
-            $this->logger->info(sprintf(
-                'CacheBoost: triggered inline warm for %d URL(s) from %d tag(s).',
-                count($urls),
-                count($this->pendingTags)
-            ));
+        $this->dispatch(['full_flush' => false, 'tags' => $tags, 'truncated' => $truncated]);
+    }
+
+    private function dispatch(array $payload): void
+    {
+        try {
+            $sync = $this->strategy->resolve() === ProcessingStrategy::SYNC;
+        } catch (\Throwable $e) {
+            $this->logger->warning('CacheBoost: unable to resolve the processing strategy — ' . $e->getMessage());
+            $sync = false;
         }
+
+        $sync ? $this->processSynchronously($payload) : $this->publish($payload);
     }
 
     /**
-     * Resolves Magento cache tags to absolute URLs across all active stores.
-     *
-     * Supported tag patterns:
-     *   cat_p_{id}  → product
-     *   cat_c_{id}  → category
-     *   cms_p_{id}  → CMS page
-     *   cms_b_{id}  → CMS block (no URL, skipped)
+     * Synchronous mode. In HTTP the work is deferred to a shutdown function that
+     * first closes the connection to the client, so the visitor still does not
+     * wait; the PHP worker stays busy for the duration of the API call instead.
+     * Without fastcgi_finish_request() (mod_php), the response is delayed by up
+     * to the API timeout — use a cron-based mode there whenever possible.
      */
-    private function resolveTagsToUrls(array $tags): array
+    private function processSynchronously(array $payload): void
     {
-        $entities = [];
-        foreach ($tags as $tag) {
-            if (preg_match('/^cat_p_(\d+)$/', $tag, $m)) {
-                $entities[] = [UrlRewrite::ENTITY_TYPE => 'product',  UrlRewrite::ENTITY_ID => (int) $m[1]];
-            } elseif (preg_match('/^cat_c_(\d+)$/', $tag, $m)) {
-                $entities[] = [UrlRewrite::ENTITY_TYPE => 'category', UrlRewrite::ENTITY_ID => (int) $m[1]];
-            } elseif (preg_match('/^cms_p_(\d+)$/', $tag, $m)) {
-                $entities[] = [UrlRewrite::ENTITY_TYPE => 'cms-page', UrlRewrite::ENTITY_ID => (int) $m[1]];
-            }
-            // cms_b_{id} (blocks) have no URL — intentionally skipped.
-        }
-
-        if (empty($entities)) {
-            return [];
-        }
-
-        // The API rejects the whole batch (422) if any URL is outside the domain
-        // registered for the CacheBoost site. The default store view's host is our
-        // best local proxy for that domain: skip stores served on other domains.
-        $referenceHost = null;
         try {
-            $referenceHost = parse_url(
-                $this->storeManager->getDefaultStoreView()->getBaseUrl(),
-                PHP_URL_HOST
-            ) ?: null;
-        } catch (\Throwable) {
-            // No default store view available — skip host filtering.
+            $message = $this->json->serialize($payload);
+        } catch (\Throwable $e) {
+            $this->logger->error('CacheBoost: failed to encode warm request — ' . $e->getMessage());
+            return;
         }
 
-        $urls = [];
-        foreach ($this->storeManager->getStores() as $store) {
-            if (!$store->isActive()) {
-                continue;
-            }
-            $baseUrl = rtrim($store->getBaseUrl(), '/');
-
-            $host = parse_url($store->getBaseUrl(), PHP_URL_HOST);
-            if ($referenceHost !== null && $host !== $referenceHost) {
-                $this->logger->debug(
-                    "CacheBoost: store #{$store->getId()} skipped — host {$host} differs from site domain {$referenceHost}."
-                );
-                continue;
-            }
-
-            foreach ($entities as $criterion) {
-                try {
-                    $rewrites = $this->urlFinder->findAllByData(array_merge($criterion, [
-                        UrlRewrite::STORE_ID      => (int) $store->getId(),
-                        UrlRewrite::REDIRECT_TYPE => 0, // canonical only, not redirects
-                    ]));
-                    foreach ($rewrites as $rewrite) {
-                        $urls[] = $baseUrl . '/' . ltrim($rewrite->getRequestPath(), '/');
-                    }
-                } catch (\Throwable $e) {
-                    $this->logger->warning(
-                        'CacheBoost: URL resolution failed for ' .
-                        json_encode($criterion) . ' — ' . $e->getMessage()
-                    );
-                }
-            }
+        if (PHP_SAPI === 'cli') {
+            // CLI flushes already run at shutdown (see registerShutdownFallback()).
+            $this->consumer->process($message);
+            return;
         }
 
-        return array_values(array_unique($urls));
+        register_shutdown_function(function () use ($message): void {
+            if (function_exists('fastcgi_finish_request')) {
+                fastcgi_finish_request();
+            } elseif (function_exists('litespeed_finish_request')) {
+                litespeed_finish_request();
+            }
+            $this->consumer->process($message);
+        });
+    }
+
+    /** Publishing must never break the request that triggered the invalidation. */
+    private function publish(array $payload): void
+    {
+        try {
+            $this->publisher->publish(self::TOPIC, $this->json->serialize($payload));
+            $this->logger->info(sprintf(
+                'CacheBoost: queued warm request (%s, %d tag(s)).',
+                $payload['full_flush'] ? 'full flush' : 'tags',
+                count($payload['tags'])
+            ));
+        } catch (\Throwable $e) {
+            $this->logger->error('CacheBoost: failed to queue warm request — ' . $e->getMessage());
+        }
     }
 }

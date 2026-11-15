@@ -1,0 +1,58 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * "Background Processing" status panel (no JavaScript, CSP-safe).
+ *
+ * @var \CacheBoost\Warmer\Block\Adminhtml\ProcessingStatus $block
+ * @var \Magento\Framework\Escaper $escaper
+ */
+
+$d = $block->getDiagnostics();
+
+$colors = [
+    'ok'      => ['#e8f5e9', '#a5d6a7', '#2e7d32'],
+    'warning' => ['#fff8e1', '#ffe082', '#8d6e00'],
+    'error'   => ['#ffebee', '#ef9a9a', '#c62828'],
+];
+[$background, $border, $color] = $colors[$d['level']] ?? $colors['ok'];
+
+if ($d['pending'] === null) {
+    $pending = __('not available for the "%1" queue connection', $d['connection']);
+} elseif ($d['pending']['count'] === 0) {
+    $pending = __('none');
+} else {
+    $pending = __('%1 (oldest queued %2)', $d['pending']['count'], $block->formatAge($d['pending']['oldest_age']));
+}
+
+$lastDrain = $d['last_drain'] === null
+    ? __('never')
+    : __('%1 — %2 message(s)', $block->formatAge(max(0, time() - $d['last_drain']['at'])), $d['last_drain']['processed']);
+
+$rows = [
+    [__('Active strategy'), $block->getStrategyLabel($d['strategy'])],
+    [__('Consumers runner (env.php)'), $d['runner_active'] ? __('starts cacheboostWarmConsumer') : __('disabled for cacheboostWarmConsumer')],
+    [__('Pending warm requests'), $pending],
+    [__('Last Magento cron run'), $block->formatAge($d['cron_age'])],
+    [__('Last queue processing by the module cron'), $lastDrain],
+];
+?>
+<div style="background:#fafafa;border:1px solid #e0e0e0;border-radius:4px;padding:16px 20px;font-size:13px">
+    <table style="border-collapse:collapse;width:auto">
+        <?php foreach ($rows as [$label, $value]): ?>
+            <tr>
+                <th style="text-align:left;font-weight:600;padding:3px 24px 3px 0;white-space:nowrap"><?= $escaper->escapeHtml($label) ?></th>
+                <td style="padding:3px 0"><?= $escaper->escapeHtml($value) ?></td>
+            </tr>
+        <?php endforeach; ?>
+    </table>
+
+    <?php if (!empty($d['messages'])): ?>
+        <div style="margin-top:12px;padding:10px 14px;border-radius:3px;line-height:1.5;background:<?= $escaper->escapeHtmlAttr($background) ?>;border:1px solid <?= $escaper->escapeHtmlAttr($border) ?>;color:<?= $escaper->escapeHtmlAttr($color) ?>">
+            <?php foreach ($d['messages'] as $message): ?>
+                <div><?= $escaper->escapeHtml($message) ?></div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+</div>

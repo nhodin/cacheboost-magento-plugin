@@ -1,18 +1,6 @@
-﻿<?xml version="1.0"?>
+<?xml version="1.0"?>
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
-
-    <!-- Full cache flush from admin panel -->
-    <event name="adminhtml_cache_flush_all">
-        <observer name="cacheboost_flush_all"
-                  instance="CacheBoost\Warmer\Observer\FlushAll"/>
-    </event>
-
-    <!-- Storage flush (JS/CSS/etc.) from admin panel -->
-    <event name="adminhtml_cache_flush_system">
-        <observer name="cacheboost_flush_system"
-                  instance="CacheBoost\Warmer\Observer\FlushAll"/>
-    </event>
 
     <!-- Granular tag-based invalidation (product/category/CMS save, reindex, etc.) -->
     <event name="clean_cache_by_tags">

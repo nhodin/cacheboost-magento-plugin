@@ -9,6 +9,12 @@
                 <mode>smart</mode>
                 <api_endpoint>https://api.cache-boost.com</api_endpoint>
             </general>
+            <diagnostics>
+                <share_environment>1</share_environment>
+            </diagnostics>
+            <processing>
+                <mode>auto</mode>
+            </processing>
         </cacheboost>
     </default>
 </config>
