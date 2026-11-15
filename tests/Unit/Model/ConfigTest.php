@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\CacheWarmer\Test\Unit\Model;
+namespace CacheBoost\Warmer\Test\Unit\Model;
 
-use CacheBoost\CacheWarmer\Model\Config;
+use CacheBoost\Warmer\Model\Config;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Encryption\EncryptorInterface;
 use PHPUnit\Framework\TestCase;
@@ -107,6 +107,67 @@ class ConfigTest extends TestCase
         self::assertSame('', $this->config->getApiKey());
     }
 
+    // ── hasCredentials ───────────────────────────────────────────────────────
+
+    public function testHasCredentialsReturnsTrueEvenWhenModuleDisabled(): void
+    {
+        // "Test connection" must work before Enable is switched to Yes,
+        // so hasCredentials() must not depend on the enabled flag.
+        $this->scopeConfig->method('isSetFlag')->willReturn(false);
+        $this->scopeConfig->method('getValue')->willReturnCallback(
+            fn($path) => match ($path) {
+                'cacheboost/general/api_key' => 'enc',
+                'cacheboost/general/site_id' => '5',
+                default                      => null,
+            }
+        );
+        $this->encryptor->method('decrypt')->willReturn('my-api-key');
+
+        self::assertTrue($this->config->hasCredentials());
+    }
+
+    public function testHasCredentialsReturnsTrueWhenModuleEnabled(): void
+    {
+        $this->scopeConfig->method('isSetFlag')->willReturn(true);
+        $this->scopeConfig->method('getValue')->willReturnCallback(
+            fn($path) => match ($path) {
+                'cacheboost/general/api_key' => 'enc',
+                'cacheboost/general/site_id' => '5',
+                default                      => null,
+            }
+        );
+        $this->encryptor->method('decrypt')->willReturn('my-api-key');
+
+        self::assertTrue($this->config->hasCredentials());
+    }
+
+    public function testHasCredentialsReturnsFalseWhenApiKeyEmpty(): void
+    {
+        $this->scopeConfig->method('getValue')->willReturnCallback(
+            fn($path) => match ($path) {
+                'cacheboost/general/api_key' => '',
+                'cacheboost/general/site_id' => '5',
+                default                      => null,
+            }
+        );
+
+        self::assertFalse($this->config->hasCredentials());
+    }
+
+    public function testHasCredentialsReturnsFalseWhenSiteIdIsZero(): void
+    {
+        $this->scopeConfig->method('getValue')->willReturnCallback(
+            fn($path) => match ($path) {
+                'cacheboost/general/api_key' => 'enc',
+                'cacheboost/general/site_id' => '0',
+                default                      => null,
+            }
+        );
+        $this->encryptor->method('decrypt')->willReturn('my-api-key');
+
+        self::assertFalse($this->config->hasCredentials());
+    }
+
     // ── isConfigured ─────────────────────────────────────────────────────────
 
     public function testIsConfiguredReturnsTrueWhenAllSet(): void
@@ -128,6 +189,24 @@ class ConfigTest extends TestCase
     {
         $this->scopeConfig->method('isSetFlag')->willReturn(false);
 
+        self::assertFalse($this->config->isConfigured());
+    }
+
+    public function testIsConfiguredRequiresEnabledEvenWithValidCredentials(): void
+    {
+        // Valid credentials alone are not enough: warming must stay off
+        // until the merchant explicitly enables the module.
+        $this->scopeConfig->method('isSetFlag')->willReturn(false);
+        $this->scopeConfig->method('getValue')->willReturnCallback(
+            fn($path) => match ($path) {
+                'cacheboost/general/api_key' => 'enc',
+                'cacheboost/general/site_id' => '5',
+                default                      => null,
+            }
+        );
+        $this->encryptor->method('decrypt')->willReturn('my-api-key');
+
+        self::assertTrue($this->config->hasCredentials());
         self::assertFalse($this->config->isConfigured());
     }
 
@@ -158,5 +237,28 @@ class ConfigTest extends TestCase
         $this->encryptor->method('decrypt')->willReturn('my-api-key');
 
         self::assertFalse($this->config->isConfigured());
+    }
+
+    // ── getProcessingMode ────────────────────────────────────────────────────
+
+    public function testProcessingModeDefaultsToAuto(): void
+    {
+        $this->scopeConfig->method('getValue')->willReturn(null);
+
+        self::assertSame(Config::PROCESSING_AUTO, $this->config->getProcessingMode());
+    }
+
+    public function testProcessingModeReturnsKnownValue(): void
+    {
+        $this->scopeConfig->method('getValue')->willReturn('cron');
+
+        self::assertSame(Config::PROCESSING_CRON, $this->config->getProcessingMode());
+    }
+
+    public function testUnknownProcessingModeFallsBackToAuto(): void
+    {
+        $this->scopeConfig->method('getValue')->willReturn('daemon');
+
+        self::assertSame(Config::PROCESSING_AUTO, $this->config->getProcessingMode());
     }
 }

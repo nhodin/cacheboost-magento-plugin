@@ -1,17 +1,21 @@
 {
-    "name": "cacheboost/cache-warmer-dev",
+    "name": "cacheboost/module-warmer",
     "description": "CacheBoost Warmer – Magento 2 cache warming plugin",
-    "type": "project",
+    "type": "magento2-module",
     "require": {
-        "php": ">=8.1"
+        "php": "~8.1.0||~8.2.0||~8.3.0||~8.4.0"
     },
     "require-dev": {
         "phpunit/phpunit": "^10.5",
         "psr/log": "^3.0"
     },
     "autoload": {
+        "files": [
+            "app/code/CacheBoost/Warmer/registration.php"
+        ],
         "psr-4": {
-            "CacheBoost\\CacheWarmer\\": "app/code/CacheBoost/CacheWarmer/"
+            "CacheBoost\\Warmer\\": "app/code/CacheBoost/Warmer/"
         }
-    }
+    },
+    "license": "MIT"
 }

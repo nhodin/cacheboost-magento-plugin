@@ -1,0 +1,45 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * "CacheBoost account" panel: Connect / Reconnect (no JavaScript).
+ *
+ * @var \CacheBoost\Warmer\Block\Adminhtml\ConnectPanel $block
+ * @var \Magento\Framework\Escaper $escaper
+ */
+?>
+<div style="background:#fafafa;border:1px solid #e0e0e0;border-radius:4px;padding:16px 20px;font-size:13px;line-height:1.6">
+    <?php if (!$block->isConnected()): ?>
+        <a href="<?= $escaper->escapeUrl($block->getConnectUrl()) ?>" class="action-default primary"
+           style="display:inline-block;text-decoration:none">
+            <span><?= $escaper->escapeHtml(__('Connect to CacheBoost')) ?></span>
+        </a>
+        <p style="margin:10px 0 0;color:#555">
+            <?= $escaper->escapeHtml(__('Sign in or create a free account (500 URLs per month, no credit card). Your site, its domain validation, the regions and the full-site warming are set up automatically for %1.', $block->getDomain())) ?>
+        </p>
+        <p style="margin:6px 0 0;color:#777">
+            <?= $escaper->escapeHtml(__('You can also paste an API key below and save.')) ?>
+        </p>
+    <?php else: ?>
+        <div>
+            <span style="color:#2e7d32;font-weight:600">&#10003; <?= $escaper->escapeHtml(__('Connected')) ?></span>
+            <?php if ($block->getSiteId() > 0): ?>
+                — <?= $escaper->escapeHtml(__('%1, CacheBoost site #%2', $block->getDomain(), $block->getSiteId())) ?>
+            <?php endif; ?>
+            <a href="<?= $escaper->escapeUrl($block->getConnectUrl()) ?>" class="action-default"
+               style="display:inline-block;text-decoration:none;margin-left:12px">
+                <span><?= $escaper->escapeHtml(__('Reconnect')) ?></span>
+            </a>
+        </div>
+        <?php if (!$block->isEnabled()): ?>
+            <div style="margin-top:8px;color:#8d6e00"><?= $escaper->escapeHtml(__('Warming is off: set "Enable CacheBoost" to Yes and save.')) ?></div>
+        <?php endif; ?>
+        <?php if ($block->isValidationPending()): ?>
+            <div style="margin-top:8px;color:#c62828">
+                <?= $escaper->escapeHtml(__('Your domain is not validated in CacheBoost: warming requests are rejected until it is. Click "Test connection" below to retry.')) ?>
+                <a href="https://app.cache-boost.com/sites" target="_blank" rel="noopener"><?= $escaper->escapeHtml(__('See validation methods')) ?></a>
+            </div>
+        <?php endif; ?>
+    <?php endif; ?>
+</div>
