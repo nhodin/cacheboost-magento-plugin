@@ -1,0 +1,27 @@
+{
+    "name": "cacheboost/cache-warmer",
+    "description": "CacheBoost Warmer for Magento 2 — triggers targeted cache warming on flush and invalidation events",
+    "homepage": "https://www.cache-boost.com/magento",
+    "type": "magento2-module",
+    "version": "1.1.0",
+    "license": "MIT",
+    "require": {
+        "php": "~8.1.0||~8.2.0||~8.3.0||~8.4.0",
+        "magento/framework": ">=103.0.6",
+        "magento/framework-message-queue": ">=100.4.0",
+        "magento/module-backend": ">=102.0.6",
+        "magento/module-config": ">=101.2.6",
+        "magento/module-cron": ">=100.4.6",
+        "magento/module-mysql-mq": ">=100.4.6",
+        "magento/module-store": ">=101.1.6",
+        "magento/module-url-rewrite": ">=102.0.6"
+    },
+    "autoload": {
+        "files": [
+            "registration.php"
+        ],
+        "psr-4": {
+            "CacheBoost\\CacheWarmer\\": ""
+        }
+    }
+}

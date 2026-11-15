@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Service;
+namespace CacheBoost\CacheWarmer\Test\Unit\Service;
 
-use CacheBoost\Warmer\Model\Config;
-use CacheBoost\Warmer\Service\AccountApi;
+use CacheBoost\CacheWarmer\Model\Config;
+use CacheBoost\CacheWarmer\Service\AccountApi;
 use Magento\Framework\HTTP\Client\Curl;
 use Magento\Framework\HTTP\Client\CurlFactory;
 use PHPUnit\Framework\TestCase;

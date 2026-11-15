@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Model\Queue;
+namespace CacheBoost\CacheWarmer\Test\Unit\Model\Queue;
 
-use CacheBoost\Warmer\Model\Queue\QueueDrainer;
-use CacheBoost\Warmer\Model\Queue\WarmConsumer;
+use CacheBoost\CacheWarmer\Model\Queue\QueueDrainer;
+use CacheBoost\CacheWarmer\Model\Queue\WarmConsumer;
 use Magento\Framework\MessageQueue\Consumer\Config\ConsumerConfigItemInterface;
 use Magento\Framework\MessageQueue\Consumer\ConfigInterface as ConsumerConfig;
 use Magento\Framework\MessageQueue\EnvelopeInterface;

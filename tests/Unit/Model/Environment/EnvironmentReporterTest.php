@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Model\Environment;
+namespace CacheBoost\CacheWarmer\Test\Unit\Model\Environment;
 
-use CacheBoost\Warmer\Model\Config;
-use CacheBoost\Warmer\Model\Environment\EnvironmentReporter;
-use CacheBoost\Warmer\Model\Environment\SnapshotCollector;
-use CacheBoost\Warmer\Service\AccountApi;
-use CacheBoost\Warmer\Test\Unit\Support\MemoryFlags;
+use CacheBoost\CacheWarmer\Model\Config;
+use CacheBoost\CacheWarmer\Model\Environment\EnvironmentReporter;
+use CacheBoost\CacheWarmer\Model\Environment\SnapshotCollector;
+use CacheBoost\CacheWarmer\Service\AccountApi;
+use CacheBoost\CacheWarmer\Test\Unit\Support\MemoryFlags;
 use Magento\Framework\Serialize\Serializer\Json;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;

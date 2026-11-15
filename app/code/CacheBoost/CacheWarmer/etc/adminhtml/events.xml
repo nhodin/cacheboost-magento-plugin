@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+
+    <!-- Full cache flush from admin panel -->
+    <event name="adminhtml_cache_flush_all">
+        <observer name="cacheboost_flush_all"
+                  instance="CacheBoost\CacheWarmer\Observer\FlushAll"/>
+    </event>
+
+    <!-- Storage flush (JS/CSS/etc.) from admin panel -->
+    <event name="adminhtml_cache_flush_system">
+        <observer name="cacheboost_flush_system"
+                  instance="CacheBoost\CacheWarmer\Observer\FlushAll"/>
+    </event>
+
+    <!-- Save Config on the CacheBoost section: set up a new key, follow the snapshot settings -->
+    <event name="admin_system_config_changed_section_cacheboost">
+        <observer name="cacheboost_config_saved"
+                  instance="CacheBoost\CacheWarmer\Observer\ConfigSaved"/>
+    </event>
+
+</config>

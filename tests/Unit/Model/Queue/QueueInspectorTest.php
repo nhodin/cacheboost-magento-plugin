@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Model\Queue;
+namespace CacheBoost\CacheWarmer\Test\Unit\Model\Queue;
 
-use CacheBoost\Warmer\Model\Queue\QueueInspector;
+use CacheBoost\CacheWarmer\Model\Queue\QueueInspector;
 use Magento\Framework\App\DeploymentConfig;
 use Magento\Framework\App\ResourceConnection;
 use Magento\Framework\MessageQueue\Consumer\Config\ConsumerConfigItemInterface;

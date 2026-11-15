@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Support;
+namespace CacheBoost\CacheWarmer\Test\Unit\Support;
 
 use Magento\Framework\FlagManager;
 

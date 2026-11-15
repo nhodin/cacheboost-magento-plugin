@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Model\Queue;
+namespace CacheBoost\CacheWarmer\Test\Unit\Model\Queue;
 
-use CacheBoost\Warmer\Model\Config;
-use CacheBoost\Warmer\Model\Queue\WarmConsumer;
-use CacheBoost\Warmer\Service\ApiClient;
-use CacheBoost\Warmer\Service\TagUrlResolver;
+use CacheBoost\CacheWarmer\Model\Config;
+use CacheBoost\CacheWarmer\Model\Queue\WarmConsumer;
+use CacheBoost\CacheWarmer\Service\ApiClient;
+use CacheBoost\CacheWarmer\Service\TagUrlResolver;
 use Magento\Framework\Serialize\Serializer\Json;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Model\Connect;
+namespace CacheBoost\CacheWarmer\Test\Unit\Model\Connect;
 
-use CacheBoost\Warmer\Model\Connect\ConnectFlow;
-use CacheBoost\Warmer\Model\StoreDomain;
-use CacheBoost\Warmer\Service\AccountApi;
-use CacheBoost\Warmer\Test\Unit\Support\MemoryCache;
+use CacheBoost\CacheWarmer\Model\Connect\ConnectFlow;
+use CacheBoost\CacheWarmer\Model\StoreDomain;
+use CacheBoost\CacheWarmer\Service\AccountApi;
+use CacheBoost\CacheWarmer\Test\Unit\Support\MemoryCache;
 use Magento\Framework\Serialize\Serializer\Json;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Cron;
+namespace CacheBoost\CacheWarmer\Test\Unit\Cron;
 
-use CacheBoost\Warmer\Cron\DrainWarmQueue;
-use CacheBoost\Warmer\Model\Queue\ProcessingStrategy;
-use CacheBoost\Warmer\Model\Queue\QueueDrainer;
+use CacheBoost\CacheWarmer\Cron\DrainWarmQueue;
+use CacheBoost\CacheWarmer\Model\Queue\ProcessingStrategy;
+use CacheBoost\CacheWarmer\Model\Queue\QueueDrainer;
 use Magento\Framework\FlagManager;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;

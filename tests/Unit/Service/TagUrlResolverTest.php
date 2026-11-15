@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Service;
+namespace CacheBoost\CacheWarmer\Test\Unit\Service;
 
-use CacheBoost\Warmer\Service\TagUrlResolver;
+use CacheBoost\CacheWarmer\Service\TagUrlResolver;
 use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\UrlRewrite\Model\UrlFinderInterface;

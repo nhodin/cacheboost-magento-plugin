@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Service;
+namespace CacheBoost\CacheWarmer\Test\Unit\Service;
 
-use CacheBoost\Warmer\Model\Config;
-use CacheBoost\Warmer\Model\Queue\ProcessingStrategy;
-use CacheBoost\Warmer\Model\Queue\WarmConsumer;
-use CacheBoost\Warmer\Service\UrlCollector;
+use CacheBoost\CacheWarmer\Model\Config;
+use CacheBoost\CacheWarmer\Model\Queue\ProcessingStrategy;
+use CacheBoost\CacheWarmer\Model\Queue\WarmConsumer;
+use CacheBoost\CacheWarmer\Service\UrlCollector;
 use Magento\Framework\MessageQueue\PublisherInterface;
 use Magento\Framework\Serialize\Serializer\Json;
 use PHPUnit\Framework\TestCase;

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Model\Account;
+namespace CacheBoost\CacheWarmer\Test\Unit\Model\Account;
 
-use CacheBoost\Warmer\Model\Account\AccountStatus;
-use CacheBoost\Warmer\Model\Config;
-use CacheBoost\Warmer\Service\AccountApi;
-use CacheBoost\Warmer\Test\Unit\Support\MemoryCache;
+use CacheBoost\CacheWarmer\Model\Account\AccountStatus;
+use CacheBoost\CacheWarmer\Model\Config;
+use CacheBoost\CacheWarmer\Service\AccountApi;
+use CacheBoost\CacheWarmer\Test\Unit\Support\MemoryCache;
 use Magento\Framework\Serialize\Serializer\Json;
 use PHPUnit\Framework\TestCase;
 

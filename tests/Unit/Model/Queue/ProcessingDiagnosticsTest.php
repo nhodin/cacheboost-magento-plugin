@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Model\Queue;
+namespace CacheBoost\CacheWarmer\Test\Unit\Model\Queue;
 
-use CacheBoost\Warmer\Model\Config;
-use CacheBoost\Warmer\Model\Queue\ProcessingDiagnostics;
-use CacheBoost\Warmer\Model\Queue\ProcessingStrategy;
-use CacheBoost\Warmer\Model\Queue\QueueInspector;
+use CacheBoost\CacheWarmer\Model\Config;
+use CacheBoost\CacheWarmer\Model\Queue\ProcessingDiagnostics;
+use CacheBoost\CacheWarmer\Model\Queue\ProcessingStrategy;
+use CacheBoost\CacheWarmer\Model\Queue\QueueInspector;
 use Magento\Framework\FlagManager;
 use PHPUnit\Framework\TestCase;
 

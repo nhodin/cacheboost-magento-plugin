@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Model\Validation;
+namespace CacheBoost\CacheWarmer\Test\Unit\Model\Validation;
 
-use CacheBoost\Warmer\Model\Validation\SiteValidation;
-use CacheBoost\Warmer\Service\AccountApi;
-use CacheBoost\Warmer\Test\Unit\Support\MemoryFlags;
+use CacheBoost\CacheWarmer\Model\Validation\SiteValidation;
+use CacheBoost\CacheWarmer\Service\AccountApi;
+use CacheBoost\CacheWarmer\Test\Unit\Support\MemoryFlags;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 

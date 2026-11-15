@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Model;
+namespace CacheBoost\CacheWarmer\Test\Unit\Model;
 
-use CacheBoost\Warmer\Model\StoreDomain;
+use CacheBoost\CacheWarmer\Model\StoreDomain;
 use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use PHPUnit\Framework\TestCase;

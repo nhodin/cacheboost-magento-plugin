@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Model\Environment;
+namespace CacheBoost\CacheWarmer\Test\Unit\Model\Environment;
 
-use CacheBoost\Warmer\Model\Config;
-use CacheBoost\Warmer\Model\Environment\SnapshotCollector;
+use CacheBoost\CacheWarmer\Model\Config;
+use CacheBoost\CacheWarmer\Model\Environment\SnapshotCollector;
 use Magento\Framework\App\Cache\StateInterface;
 use Magento\Framework\App\Cache\TypeListInterface;
 use Magento\Framework\App\Config\ScopeConfigInterface;
@@ -95,7 +95,7 @@ class SnapshotCollectorTest extends TestCase
         $fullModules = $this->createMock(FullModuleList::class);
         $fullModules->method('has')->willReturnCallback(fn ($n) => in_array($n, ['Fastly_Cdn', 'Amasty_Fpc'], true));
         $packages = $this->createMock(PackageInfo::class);
-        $packages->method('getVersion')->willReturnCallback(fn ($n) => ['CacheBoost_Warmer' => '1.1.0', 'Fastly_Cdn' => '1.2.220'][$n] ?? '');
+        $packages->method('getVersion')->willReturnCallback(fn ($n) => ['CacheBoost_CacheWarmer' => '1.1.0', 'Fastly_Cdn' => '1.2.220'][$n] ?? '');
 
         return new SnapshotCollector(
             $config, $scopeConfig, $deployment, $metadata, $state, $maintenanceMode, $cacheState, $typeList,

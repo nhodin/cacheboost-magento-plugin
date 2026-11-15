@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Model;
+namespace CacheBoost\CacheWarmer\Test\Unit\Model;
 
-use CacheBoost\Warmer\Model\Config;
-use CacheBoost\Warmer\Model\Config\Source\Region;
+use CacheBoost\CacheWarmer\Model\Config;
+use CacheBoost\CacheWarmer\Model\Config\Source\Region;
 use PHPUnit\Framework\TestCase;
 
 class RegionSourceTest extends TestCase
