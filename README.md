@@ -240,8 +240,8 @@ The 15 most recent warm runs (inline and full) appear automatically once the API
 
 | Magento event | Trigger | Action |
 |---|---|---|
-| `adminhtml_cache_flush_all` | "Flush All Cache" button in admin | Full Boost run |
-| `adminhtml_cache_flush_system` | "Flush Storage" button | Full Boost run |
+| `adminhtml_cache_flush_all` | "Flush Magento Cache" button in admin, or `bin/magento cache:flush` (all cache types or `full_page`) | Full Boost run |
+| `adminhtml_cache_flush_system` | "Flush Storage" button (admin only: in CLI Magento dispatches it from `cache:clean`, which does not start a Boost) | Full Boost run |
 | `clean_cache_after_reindex` | End of a reindex | Full Boost run |
 | `clean_cache_by_tags` | Product/category/CMS page save, etc. | Targeted warm (Smart) or full Boost run (Full Only) |
 

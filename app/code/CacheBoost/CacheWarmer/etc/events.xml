@@ -2,6 +2,13 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
 
+    <!-- Full cache flush: "Flush Magento Cache" button in admin AND `bin/magento cache:flush`
+         (Magento dispatches this event from both). Declared globally so it also fires in CLI. -->
+    <event name="adminhtml_cache_flush_all">
+        <observer name="cacheboost_flush_all"
+                  instance="CacheBoost\CacheWarmer\Observer\FlushAll"/>
+    </event>
+
     <!-- Granular tag-based invalidation (product/category/CMS save, reindex, etc.) -->
     <event name="clean_cache_by_tags">
         <observer name="cacheboost_flush_by_tags"
