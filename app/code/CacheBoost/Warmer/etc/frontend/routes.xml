@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:App/etc/routes.xsd">
+    <!-- Storefront return URL of "Connect to CacheBoost" (Controller\Connect\Callback). -->
+    <router id="standard">
+        <route id="cacheboost" frontName="cacheboost">
+            <module name="CacheBoost_Warmer"/>
+        </route>
+    </router>
+</config>

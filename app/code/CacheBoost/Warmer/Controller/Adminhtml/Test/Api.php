@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CacheBoost\Warmer\Controller\Adminhtml\Test;
 
+use CacheBoost\Warmer\Model\Account\AccountSetup;
 use CacheBoost\Warmer\Model\Config;
 use CacheBoost\Warmer\Service\ApiClient;
 use Magento\Backend\App\Action;
@@ -26,7 +27,8 @@ class Api extends Action implements HttpPostActionInterface
         private readonly JsonFactory $jsonFactory,
         private readonly Config $config,
         private readonly ApiClient $apiClient,
-        private readonly StoreManagerInterface $storeManager
+        private readonly StoreManagerInterface $storeManager,
+        private readonly AccountSetup $accountSetup
     ) {
         parent::__construct($context);
     }
@@ -44,25 +46,24 @@ class Api extends Action implements HttpPostActionInterface
         };
     }
 
+    /**
+     * Same as the WordPress plugin's Test Connection: checks the key and its scopes, finds the
+     * site of this storefront, refreshes the regions and validates the domain if needed.
+     */
     private function testConnection(): array
     {
-        $result = $this->apiClient->ping();
-        if (!$result['success']) {
-            return $result;
+        $apiKey = $this->config->getApiKey();
+        if ($apiKey === '') {
+            return ['success' => false, 'message' => (string) __('API Key is not configured. Use "Connect to CacheBoost" or paste a key and save.')];
         }
 
-        // boosts:write → trigger warms/runs, boosts:read → inline history, runs:read → boost run history.
-        $required = ['boosts:read', 'boosts:write', 'runs:read'];
-        $missing  = array_diff($required, $result['scopes'] ?? []);
-
-        if (!empty($missing)) {
-            return [
-                'success' => false,
-                'message' => (string) __('Connected, but missing required scopes: %1. Please regenerate your API key with the correct permissions.', implode(', ', $missing)),
-            ];
+        $result = $this->accountSetup->run($apiKey);
+        $message = $result['message'];
+        if (!empty($result['notices'])) {
+            $message .= ' ' . implode(' ', $result['notices']);
         }
 
-        return ['success' => true, 'message' => (string) __('Connection successful. All required scopes are granted.')];
+        return ['success' => $result['success'], 'message' => $message];
     }
 
     private function testWarm(): array

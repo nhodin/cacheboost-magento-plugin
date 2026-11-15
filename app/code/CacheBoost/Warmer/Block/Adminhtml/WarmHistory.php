@@ -13,7 +13,7 @@ use Magento\Framework\Data\Form\Element\AbstractElement;
 
 /**
  * frontend_model for the "Warm History" field in system.xml.
- * Calls GET /v1/sites/{id}/warm-runs and renders a styled table.
+ * Calls GET /v1/sites/{id}/warm-runs and renders a styled table (see warm_history.phtml).
  */
 class WarmHistory extends Field
 {
@@ -28,29 +28,42 @@ class WarmHistory extends Field
         array $data = []
     ) {
         parent::__construct($context, $data);
+        $this->setTemplate('CacheBoost_Warmer::system/config/warm_history.phtml');
     }
 
     /** @noinspection PhpUnusedParameterInspection */
     public function render(AbstractElement $element): string
     {
+        return '<tr><td colspan="4" style="padding:10px 0">' . $this->toHtml() . '</td></tr>';
+    }
+
+    /**
+     * Whether the API Key and Site ID are configured (history can be fetched).
+     */
+    public function isConfigured(): bool
+    {
+        return $this->config->isConfigured();
+    }
+
+    /**
+     * Normalized warm runs ready for presentation. Any load failure yields an
+     * empty list: the history panel must never break the whole configuration page.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getRuns(): array
+    {
         if (!$this->config->isConfigured()) {
-            return $this->wrapRow($this->notice(
-                (string) __('Configure the API Key and Site ID to display warm history.')
-            ));
+            return [];
         }
 
         try {
             $runs = $this->loadRuns();
         } catch (\Throwable) {
-            // The history panel must never break the whole configuration page.
-            return $this->wrapRow($this->notice((string) __('No warm runs found for this site.')));
+            return [];
         }
 
-        if (empty($runs)) {
-            return $this->wrapRow($this->notice((string) __('No warm runs found for this site.')));
-        }
-
-        return $this->wrapRow($this->table($runs));
+        return array_map($this->normalizeRun(...), $runs);
     }
 
     private function loadRuns(): array
@@ -95,137 +108,46 @@ class WarmHistory extends Field
         return $runs;
     }
 
-    private function table(array $runs): string
+    /**
+     * Flatten one raw API run into the scalar fields the template displays.
+     *
+     * @return array<string, mixed>
+     */
+    private function normalizeRun(array $run): array
     {
-        $rows = '';
-        foreach ($runs as $run) {
-            $id     = (int) ($run['id'] ?? 0);
-            $status = htmlspecialchars((string) ($run['status'] ?? ''), ENT_QUOTES);
-            $type   = ($run['_type'] ?? '') === 'full' ? 'full' : 'inline';
+        $id = (int) ($run['id'] ?? 0);
 
-            $date = '—';
-            if (isset($run['created_at'])) {
-                try {
-                    $date = (new \DateTimeImmutable((string) $run['created_at']))->format('d/m/Y H:i');
-                } catch (\Throwable) {
-                    // Malformed API date: keep the placeholder rather than break the page.
-                }
+        $date = '—';
+        if (isset($run['created_at'])) {
+            try {
+                $date = (new \DateTimeImmutable((string) $run['created_at']))->format('d/m/Y H:i');
+            } catch (\Throwable) {
+                // Malformed API date: keep the placeholder rather than break the page.
             }
-
-            $urlCount = isset($run['source_urls']) && is_array($run['source_urls'])
-                ? count($run['source_urls'])
-                : '—';
-            $region   = isset($run['run_region']) && is_array($run['run_region'])
-                ? htmlspecialchars(implode(', ', $run['run_region']), ENT_QUOTES)
-                : '—';
-
-            $summary  = $run['summary'] ?? [];
-            $hit      = isset($summary['hit'])  ? (int) $summary['hit']  : null;
-            $miss     = isset($summary['miss']) ? (int) $summary['miss'] : null;
-            $hitRate  = ($hit !== null && $miss !== null && ($hit + $miss) > 0)
-                ? round($hit / ($hit + $miss) * 100) . '%'
-                : '—';
-
-            $appRunUrl = 'https://app.cache-boost.com/boosts/run/' . $id;
-            $rows .= sprintf(
-                '<tr style="border-bottom:1px solid #eee">
-                    <td style="padding:7px 12px;font-size:12px">
-                        <a href="%s" target="_blank" rel="noopener"
-                           style="color:#1565c0;text-decoration:none;font-weight:600">#%d ↗</a>
-                    </td>
-                    <td style="padding:7px 12px">%s</td>
-                    <td style="padding:7px 12px">%s</td>
-                    <td style="padding:7px 12px;color:#555">%s</td>
-                    <td style="padding:7px 12px;text-align:right">%s</td>
-                    <td style="padding:7px 12px;color:#555">%s</td>
-                    <td style="padding:7px 12px">%s</td>
-                </tr>',
-                htmlspecialchars($appRunUrl, ENT_QUOTES),
-                $id,
-                $this->statusBadge($status),
-                $this->typeBadge($type),
-                $date,
-                $urlCount,
-                $region,
-                $this->hitRateCell($hit, $miss, $hitRate)
-            );
         }
 
-        $th = static fn(string $label, string $extra = ''): string => sprintf(
-            '<th style="padding:8px 12px;font-weight:600;color:#555%s">%s</th>',
-            $extra,
-            htmlspecialchars($label, ENT_QUOTES)
-        );
+        $summary = $run['summary'] ?? [];
+        $hit     = isset($summary['hit'])  ? (int) $summary['hit']  : null;
+        $miss    = isset($summary['miss']) ? (int) $summary['miss'] : null;
+        $hitRate = ($hit !== null && $miss !== null && ($hit + $miss) > 0)
+            ? round($hit / ($hit + $miss) * 100) . '%'
+            : '—';
 
-        return '
-        <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:4px">
-            <thead>
-                <tr style="background:#f8f8f8;border-bottom:2px solid #ddd;text-align:left">'
-                    . $th((string) __('Run'))
-                    . $th((string) __('Status'))
-                    . $th((string) __('Type'))
-                    . $th((string) __('Date'))
-                    . $th((string) __('URLs'), ';text-align:right')
-                    . $th((string) __('Region'))
-                    . $th((string) __('HIT / MISS')) . '
-                </tr>
-            </thead>
-            <tbody>' . $rows . '</tbody>
-        </table>';
-    }
-
-    private function typeBadge(string $type): string
-    {
-        if ($type === 'full') {
-            return '<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600;background:#ede7f6;color:#4527a0;border:1px solid #b39ddb">FULL</span>';
-        }
-        return '<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600;background:#e8eaf6;color:#283593;border:1px solid #9fa8da">INLINE</span>';
-    }
-
-    private function statusBadge(string $status): string
-    {
-        $styles = [
-            'pending' => 'background:#fff8e1;color:#e65100;border:1px solid #ffe082',
-            'running' => 'background:#e3f2fd;color:#1565c0;border:1px solid #90caf9',
-            'done'    => 'background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7',
-            'failed'  => 'background:#ffebee;color:#c62828;border:1px solid #ef9a9a',
+        return [
+            'id'          => $id,
+            'app_run_url' => 'https://app.cache-boost.com/boosts/run/' . $id,
+            'status'      => (string) ($run['status'] ?? ''),
+            'type'        => ($run['_type'] ?? '') === 'full' ? 'full' : 'inline',
+            'date'        => $date,
+            'url_count'   => isset($run['source_urls']) && is_array($run['source_urls'])
+                ? (string) count($run['source_urls'])
+                : '—',
+            'region'      => isset($run['run_region']) && is_array($run['run_region'])
+                ? implode(', ', $run['run_region'])
+                : '—',
+            'hit'         => $hit,
+            'miss'        => $miss,
+            'hit_rate'    => $hitRate,
         ];
-        $style = $styles[$status] ?? 'background:#f5f5f5;color:#555;border:1px solid #ddd';
-
-        return sprintf(
-            '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;%s">%s</span>',
-            $style,
-            strtoupper(htmlspecialchars($status, ENT_QUOTES))
-        );
-    }
-
-    private function hitRateCell(?int $hit, ?int $miss, string $hitRate): string
-    {
-        if ($hit === null) {
-            return '<span style="color:#aaa">—</span>';
-        }
-
-        return sprintf(
-            '<span style="color:#2e7d32;font-weight:600">%d HIT</span>'
-            . ' <span style="color:#aaa">/</span> '
-            . '<span style="color:#c62828">%d MISS</span>'
-            . ' <span style="color:#888;font-size:11px">(%s)</span>',
-            $hit,
-            $miss,
-            $hitRate
-        );
-    }
-
-    private function notice(string $message): string
-    {
-        return sprintf(
-            '<p style="color:#888;font-style:italic;margin:8px 0;font-size:13px">%s</p>',
-            htmlspecialchars($message, ENT_QUOTES)
-        );
-    }
-
-    private function wrapRow(string $content): string
-    {
-        return '<tr><td colspan="4" style="padding:10px 0">' . $content . '</td></tr>';
     }
 }

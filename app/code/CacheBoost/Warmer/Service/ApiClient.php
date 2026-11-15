@@ -95,12 +95,15 @@ class ApiClient
     /**
      * Calls GET /v1/me to verify the API key and retrieve granted scopes.
      * Returns ['success' => bool, 'scopes' => string[], 'message' => string].
+     *
+     * Only the API key is required: merchants typically test the connection
+     * before switching Enable to Yes, and GET /v1/me needs no site ID.
      */
     public function ping(): array
     {
         try {
-            if (!$this->config->isConfigured()) {
-                return ['success' => false, 'message' => (string) __('API Key or Site ID is not configured.')];
+            if ($this->config->getApiKey() === '') {
+                return ['success' => false, 'message' => (string) __('API Key is not configured.')];
             }
 
             $curl = $this->newCurl();

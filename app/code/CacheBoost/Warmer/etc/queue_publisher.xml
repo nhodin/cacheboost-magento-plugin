@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework-message-queue:etc/publisher.xsd">
+
+    <!-- The db connection (MySQL-backed queue) works on every installation with no
+         extra services. On Adobe Commerce Cloud, merchants can remap the connection
+         to RabbitMQ via env.php (queue/topics) without touching this module. -->
+    <publisher topic="cacheboost.warm">
+        <connection name="db" exchange="magento-db"/>
+    </publisher>
+
+</config>
