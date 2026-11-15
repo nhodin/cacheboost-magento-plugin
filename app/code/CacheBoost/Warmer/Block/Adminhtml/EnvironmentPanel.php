@@ -63,7 +63,7 @@ class EnvironmentPanel extends Field
         };
     }
 
-    public function formatTime(?int $timestamp): string
+    public function formatSentAt(?int $timestamp): string
     {
         return $timestamp ? $this->_localeDate->formatDateTime((new \DateTime())->setTimestamp($timestamp), \IntlDateFormatter::MEDIUM, \IntlDateFormatter::SHORT) : (string) __('never');
     }

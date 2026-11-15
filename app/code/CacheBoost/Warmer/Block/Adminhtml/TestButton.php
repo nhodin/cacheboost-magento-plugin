@@ -7,7 +7,6 @@ namespace CacheBoost\Warmer\Block\Adminhtml;
 use Magento\Backend\Block\Template\Context;
 use Magento\Config\Block\System\Config\Form\Field;
 use Magento\Framework\Data\Form\Element\AbstractElement;
-use Magento\Framework\Data\Form\FormKey;
 use Magento\Framework\View\Helper\SecureHtmlRenderer;
 
 /**
@@ -16,9 +15,9 @@ use Magento\Framework\View\Helper\SecureHtmlRenderer;
  */
 class TestButton extends Field
 {
+    // $formKey is inherited from Magento\Backend\Block\Template (protected); redeclaring it is a fatal error.
     public function __construct(
         Context $context,
-        private readonly FormKey $formKey,
         private readonly SecureHtmlRenderer $secureHtmlRenderer,
         array $data = []
     ) {
