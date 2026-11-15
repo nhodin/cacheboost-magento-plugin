@@ -26,7 +26,7 @@ Automatically triggers a CacheBoost cache warm-up whenever a flush or invalidati
 ### Option A — Via Composer (recommended)
 
 ```bash
-composer require cacheboost/magento2-notifier
+composer require cacheboost/warmer
 bin/magento module:enable CacheBoost_Warmer
 bin/magento setup:upgrade
 bin/magento cache:flush

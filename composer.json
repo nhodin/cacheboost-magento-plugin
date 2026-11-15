@@ -10,8 +10,12 @@
         "psr/log": "^3.0"
     },
     "autoload": {
+        "files": [
+            "app/code/CacheBoost/Warmer/registration.php"
+        ],
         "psr-4": {
             "CacheBoost\\Warmer\\": "app/code/CacheBoost/Warmer/"
         }
-    }
+    },
+    "license": "MIT"
 }
