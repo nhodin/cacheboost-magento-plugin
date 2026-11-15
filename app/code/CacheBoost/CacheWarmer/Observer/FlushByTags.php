@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Observer;
+namespace CacheBoost\CacheWarmer\Observer;
 
-use CacheBoost\Warmer\Model\Config;
-use CacheBoost\Warmer\Service\UrlCollector;
+use CacheBoost\CacheWarmer\Model\Config;
+use CacheBoost\CacheWarmer\Service\UrlCollector;
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
 

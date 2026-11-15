@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Service;
+namespace CacheBoost\CacheWarmer\Test\Unit\Service;
 
-use CacheBoost\Warmer\Model\Config;
-use CacheBoost\Warmer\Service\ApiClient;
-use CacheBoost\Warmer\Service\UrlCollector;
+use CacheBoost\CacheWarmer\Model\Config;
+use CacheBoost\CacheWarmer\Service\ApiClient;
+use CacheBoost\CacheWarmer\Service\UrlCollector;
 use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\UrlRewrite\Model\UrlFinderInterface;

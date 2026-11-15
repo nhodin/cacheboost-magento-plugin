@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Controller\Adminhtml\Test;
+namespace CacheBoost\CacheWarmer\Controller\Adminhtml\Test;
 
-use CacheBoost\Warmer\Model\Config;
-use CacheBoost\Warmer\Service\ApiClient;
+use CacheBoost\CacheWarmer\Model\Config;
+use CacheBoost\CacheWarmer\Service\ApiClient;
 use Magento\Backend\App\Action;
 use Magento\Backend\App\Action\Context;
 use Magento\Framework\App\Action\HttpPostActionInterface;
@@ -19,7 +19,7 @@ use Magento\Store\Model\StoreManagerInterface;
  */
 class Api extends Action implements HttpPostActionInterface
 {
-    public const ADMIN_RESOURCE = 'CacheBoost_Warmer::config';
+    public const ADMIN_RESOURCE = 'CacheBoost_CacheWarmer::config';
 
     public function __construct(
         Context $context,

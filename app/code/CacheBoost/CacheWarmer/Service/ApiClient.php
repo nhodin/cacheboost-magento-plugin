@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Service;
+namespace CacheBoost\CacheWarmer\Service;
 
-use CacheBoost\Warmer\Model\Config;
+use CacheBoost\CacheWarmer\Model\Config;
 use Magento\Framework\HTTP\Client\Curl;
 use Magento\Framework\HTTP\Client\CurlFactory;
 use Psr\Log\LoggerInterface;

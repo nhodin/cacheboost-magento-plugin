@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Block\Adminhtml;
+namespace CacheBoost\CacheWarmer\Block\Adminhtml;
 
-use CacheBoost\Warmer\Model\Config;
-use CacheBoost\Warmer\Service\ApiClient;
+use CacheBoost\CacheWarmer\Model\Config;
+use CacheBoost\CacheWarmer\Service\ApiClient;
 use Magento\Backend\Block\Template\Context;
 use Magento\Config\Block\System\Config\Form\Field;
 use Magento\Framework\App\CacheInterface;

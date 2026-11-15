@@ -9,7 +9,7 @@
         <section id="cacheboost" translate="label" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
             <label>CacheBoost Warmer</label>
             <tab>cacheboost</tab>
-            <resource>CacheBoost_Warmer::config</resource>
+            <resource>CacheBoost_CacheWarmer::config</resource>
 
             <!-- ── General ─────────────────────────────────────────────────── -->
             <group id="general" translate="label" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
@@ -39,7 +39,7 @@
 
                 <field id="mode" translate="label comment" type="select" sortOrder="50" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label>Warm Mode</label>
-                    <source_model>CacheBoost\Warmer\Model\Config\Source\WarmMode</source_model>
+                    <source_model>CacheBoost\CacheWarmer\Model\Config\Source\WarmMode</source_model>
                     <comment><![CDATA[<strong>Smart</strong>: resolves Magento tags to URLs and triggers a targeted warm (recommended). <strong>Full Only</strong>: always triggers the full scheduled Boost.]]></comment>
                 </field>
 
@@ -69,7 +69,7 @@
 
                 <field id="test_buttons" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label></label>
-                    <frontend_model>CacheBoost\Warmer\Block\Adminhtml\TestButton</frontend_model>
+                    <frontend_model>CacheBoost\CacheWarmer\Block\Adminhtml\TestButton</frontend_model>
                 </field>
             </group>
 
@@ -79,7 +79,7 @@
 
                 <field id="warm_history" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label></label>
-                    <frontend_model>CacheBoost\Warmer\Block\Adminhtml\WarmHistory</frontend_model>
+                    <frontend_model>CacheBoost\CacheWarmer\Block\Adminhtml\WarmHistory</frontend_model>
                 </field>
             </group>
 

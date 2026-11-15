@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Test\Unit\Model;
+namespace CacheBoost\CacheWarmer\Test\Unit\Model;
 
-use CacheBoost\Warmer\Model\Config;
+use CacheBoost\CacheWarmer\Model\Config;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Encryption\EncryptorInterface;
 use PHPUnit\Framework\TestCase;

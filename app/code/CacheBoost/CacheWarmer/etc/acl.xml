@@ -7,7 +7,7 @@
                 <resource id="Magento_Backend::stores">
                     <resource id="Magento_Backend::stores_settings">
                         <resource id="Magento_Config::config">
-                            <resource id="CacheBoost_Warmer::config"
+                            <resource id="CacheBoost_CacheWarmer::config"
                                       title="CacheBoost Configuration"
                                       sortOrder="90"/>
                         </resource>

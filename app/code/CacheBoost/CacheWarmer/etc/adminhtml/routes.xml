@@ -3,7 +3,7 @@
         xsi:noNamespaceSchemaLocation="urn:magento:framework:App/etc/routes.xsd">
     <router id="admin">
         <route id="cacheboost" frontName="cacheboost">
-            <module name="CacheBoost_Warmer"/>
+            <module name="CacheBoost_CacheWarmer"/>
         </route>
     </router>
 </config>

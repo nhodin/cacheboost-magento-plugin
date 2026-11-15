@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Model\Config\Source;
+namespace CacheBoost\CacheWarmer\Model\Config\Source;
 
 use Magento\Framework\Data\OptionSourceInterface;
 

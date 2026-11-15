@@ -27,19 +27,19 @@ Automatically triggers a CacheBoost cache warm-up whenever a flush or invalidati
 
 ```bash
 composer require cacheboost/cache-warmer
-bin/magento module:enable CacheBoost_Warmer
+bin/magento module:enable CacheBoost_CacheWarmer
 bin/magento setup:upgrade
 bin/magento cache:flush
 ```
 
 ### Option B — Manual installation
 
-1. Create the directory `app/code/CacheBoost/Warmer/` at the root of your Magento installation.
-2. Copy the full contents of `app/code/CacheBoost/Warmer/` from this repository into it.
+1. Create the directory `app/code/CacheBoost/CacheWarmer/` at the root of your Magento installation.
+2. Copy the full contents of `app/code/CacheBoost/CacheWarmer/` from this repository into it.
 3. Enable the module:
 
 ```bash
-bin/magento module:enable CacheBoost_Warmer
+bin/magento module:enable CacheBoost_CacheWarmer
 bin/magento setup:upgrade
 bin/magento cache:flush
 ```
@@ -53,7 +53,7 @@ bin/magento deploy:mode:set production
 ### Verify installation
 
 ```bash
-bin/magento module:status CacheBoost_Warmer
+bin/magento module:status CacheBoost_CacheWarmer
 # Should output: Module is enabled
 ```
 
@@ -202,7 +202,7 @@ Tests cover `Config`, `ApiClient`, and `UrlCollector`. All Magento framework dep
 ## Uninstallation
 
 ```bash
-bin/magento module:disable CacheBoost_Warmer
+bin/magento module:disable CacheBoost_CacheWarmer
 bin/magento setup:upgrade
 bin/magento cache:flush
 # Remove the app/code/CacheBoost/ directory if you installed manually

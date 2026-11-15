@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace CacheBoost\Warmer\Service;
+namespace CacheBoost\CacheWarmer\Service;
 
-use CacheBoost\Warmer\Model\Config;
+use CacheBoost\CacheWarmer\Model\Config;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\UrlRewrite\Model\UrlFinderInterface;
 use Magento\UrlRewrite\Service\V1\Data\UrlRewrite;
