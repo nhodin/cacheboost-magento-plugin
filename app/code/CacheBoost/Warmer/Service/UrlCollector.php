@@ -84,7 +84,7 @@ class UrlCollector
             } else {
                 $this->logger->info(
                     'CacheBoost: full flush event detected but no Boost ID is configured — skipped. ' .
-                    'Configure a Boost ID under Stores → Configuration → CacheBoost → Flush total.'
+                    'Configure a Boost ID under Stores → Configuration → CacheBoost → CacheBoost Warmer → Full Flush — Scheduled Boost.'
                 );
             }
             return;

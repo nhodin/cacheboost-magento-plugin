@@ -1,7 +1,7 @@
 {
-    "name": "cacheboost/warmer",
+    "name": "cacheboost/magento2-warmer-dev",
     "description": "CacheBoost Warmer – Magento 2 cache warming plugin",
-    "type": "magento2-module",
+    "type": "project",
     "require": {
         "php": ">=8.1"
     },

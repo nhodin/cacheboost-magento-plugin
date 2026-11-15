@@ -40,3 +40,6 @@
 "URLs","URLs"
 "Region","Region"
 "HIT / MISS","HIT / MISS"
+"CacheBoost bearer token (format <code>cb_live_…</code>). Required scopes: <strong>boosts:read</strong>, <strong>boosts:write</strong>, <strong>runs:read</strong>. Generate your key at <a href=""https://app.cache-boost.com/profile"" target=""_blank"" rel=""noopener"">app.cache-boost.com/profile</a>.","CacheBoost bearer token (format <code>cb_live_…</code>). Required scopes: <strong>boosts:read</strong>, <strong>boosts:write</strong>, <strong>runs:read</strong>. Generate your key at <a href=""https://app.cache-boost.com/profile"" target=""_blank"" rel=""noopener"">app.cache-boost.com/profile</a>."
+"Numeric ID of your site in CacheBoost (e.g. 42). Shown under Sites in the CacheBoost application.","Numeric ID of your site in CacheBoost (e.g. 42). Shown under Sites in the CacheBoost application."
+"<strong>Smart</strong>: resolves Magento tags to URLs and triggers a targeted warm (recommended). <strong>Full Only</strong>: always triggers the full scheduled Boost.","<strong>Smart</strong>: resolves Magento tags to URLs and triggers a targeted warm (recommended). <strong>Full Only</strong>: always triggers the full scheduled Boost."

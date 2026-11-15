@@ -77,7 +77,7 @@ class TestButton extends Field
                     result.style.background = '#e3f2fd';
                     result.style.border = '1px solid #90caf9';
                     result.style.color = '#1565c0';
-                    result.innerHTML = '⏳ ' + cacheboostI18n.loading;
+                    result.textContent = '⏳ ' + cacheboostI18n.loading;
 
                     var xhr = new XMLHttpRequest();
                     xhr.open('POST', url, true);
@@ -91,18 +91,18 @@ class TestButton extends Field
                                 result.style.background = '#e8f5e9';
                                 result.style.border     = '1px solid #a5d6a7';
                                 result.style.color      = '#2e7d32';
-                                result.innerHTML = '✅ ' + data.message;
+                                result.textContent = '✅ ' + data.message;
                             } else {
                                 result.style.background = '#ffebee';
                                 result.style.border     = '1px solid #ef9a9a';
                                 result.style.color      = '#c62828';
-                                result.innerHTML = '❌ ' + data.message;
+                                result.textContent = '❌ ' + data.message;
                             }
                         } catch (e) {
                             result.style.background = '#ffebee';
                             result.style.border     = '1px solid #ef9a9a';
                             result.style.color      = '#c62828';
-                            result.innerHTML = '❌ ' + cacheboostI18n.unexpected;
+                            result.textContent = '❌ ' + cacheboostI18n.unexpected;
                         }
                     };
                     xhr.send('form_key={$formKey}');
