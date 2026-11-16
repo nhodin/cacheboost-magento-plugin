@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CacheBoost\CacheWarmer\Service;
 
+use Magento\Framework\UrlInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\UrlRewrite\Model\UrlFinderInterface;
 use Magento\UrlRewrite\Service\V1\Data\UrlRewrite;
@@ -71,7 +72,8 @@ class TagUrlResolver
             if (!$store->isActive()) {
                 continue;
             }
-            $baseUrl = rtrim($store->getBaseUrl(), '/');
+            $baseUrl = $this->linkBaseUrl($store);
+            $homePath = $this->homePagePath($store);
 
             $host = parse_url($store->getBaseUrl(), PHP_URL_HOST);
             if ($referenceHost !== null && $host !== $referenceHost) {
@@ -88,7 +90,12 @@ class TagUrlResolver
                         UrlRewrite::REDIRECT_TYPE => 0, // canonical only, not redirects
                     ]));
                     foreach ($rewrites as $rewrite) {
-                        $urls[] = $baseUrl . '/' . ltrim($rewrite->getRequestPath(), '/');
+                        $path = ltrim((string) $rewrite->getRequestPath(), '/');
+                        $urls[] = $baseUrl . '/' . $path;
+                        // The CMS page set as home page is what visitors get at "/".
+                        if ($criterion[UrlRewrite::ENTITY_TYPE] === 'cms-page' && $homePath !== '' && $path === $homePath) {
+                            $urls[] = $baseUrl . '/';
+                        }
                     }
                 } catch (\Throwable $e) {
                     $this->logger->warning(
@@ -100,5 +107,42 @@ class TagUrlResolver
         }
 
         return array_values(array_unique($urls));
+    }
+
+    /**
+     * Base URL of storefront links, without a trailing slash.
+     *
+     * Without web server rewrites Magento appends the entry script to link URLs, and takes its
+     * name from the running script: "index.php" on the web, but "magento" in bin/magento (queue
+     * consumer, CLI). Put the storefront's entry point back so the warmed URLs exist.
+     */
+    private function linkBaseUrl(object $store): string
+    {
+        $link = rtrim((string) $store->getBaseUrl(), '/');
+        try {
+            $web = rtrim((string) $store->getBaseUrl(UrlInterface::URL_TYPE_WEB), '/');
+        } catch (\Throwable) {
+            return $link;
+        }
+
+        $script = basename((string) ($_SERVER['SCRIPT_FILENAME'] ?? ''));
+        if ($web !== '' && $script !== '' && $script !== 'index.php' && $link === $web . '/' . $script) {
+            return $web . '/index.php';
+        }
+        return $link;
+    }
+
+    /** URL key of the CMS page served as the store's home page ('' when unknown). */
+    private function homePagePath(object $store): string
+    {
+        if (!method_exists($store, 'getConfig')) {
+            return '';
+        }
+        try {
+            // Stored as "identifier" or "identifier|page_id".
+            return trim(explode('|', (string) $store->getConfig('web/default/cms_home_page'))[0], '/');
+        } catch (\Throwable) {
+            return '';
+        }
     }
 }

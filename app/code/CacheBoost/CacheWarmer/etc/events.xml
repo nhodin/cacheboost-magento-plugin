@@ -15,7 +15,8 @@
                   instance="CacheBoost\CacheWarmer\Observer\FlushByTags"/>
     </event>
 
-    <!-- Post-reindex flush -->
+    <!-- Legacy post-reindex event: no longer dispatched by Magento 2.4.6+ (reindexes go through
+         clean_cache_by_tags), kept for third-party code that still fires it. -->
     <event name="clean_cache_after_reindex">
         <observer name="cacheboost_flush_reindex"
                   instance="CacheBoost\CacheWarmer\Observer\FlushAll"/>

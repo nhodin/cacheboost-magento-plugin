@@ -11,9 +11,9 @@ use Magento\Framework\Event\ObserverInterface;
 
 /**
  * Handles full-cache flush events:
- *   - adminhtml_cache_flush_all   (Flush All Cache from admin)
+ *   - adminhtml_cache_flush_all   (Flush Magento Cache from admin, bin/magento cache:flush)
  *   - adminhtml_cache_flush_system (Flush Storage from admin)
- *   - clean_cache_after_reindex   (post-reindex)
+ *   - clean_cache_after_reindex   (legacy: Magento 2.4.6+ reindexes dispatch clean_cache_by_tags instead)
  *
  * Marks the collector for a full flush. The actual API call is deferred to
  * SendBufferedUrls so multiple events in the same request produce one call.

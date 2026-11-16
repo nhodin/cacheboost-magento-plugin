@@ -159,6 +159,92 @@ class TagUrlResolverTest extends TestCase
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
+    public function testWithoutRewritesTheCliScriptNameIsReplacedByIndexPhp(): void
+    {
+        // bin/magento (queue consumer): Magento builds link URLs with "magento/" instead of "index.php/".
+        $previous = $_SERVER['SCRIPT_FILENAME'] ?? null;
+        $_SERVER['SCRIPT_FILENAME'] = '/var/www/bin/magento';
+        try {
+            $store = $this->makeRealisticStore('https://example.com/', 'https://example.com/magento/', 'home');
+            $this->storeManager->method('getStores')->willReturn([$store]);
+
+            $rewrite = $this->createMock(UrlRewrite::class);
+            $rewrite->method('getRequestPath')->willReturn('product-slug.html');
+            $this->urlFinder->method('findAllByData')->willReturn([$rewrite]);
+
+            self::assertSame(
+                ['https://example.com/index.php/product-slug.html'],
+                $this->resolver->resolve(['cat_p_42'])
+            );
+        } finally {
+            if ($previous === null) {
+                unset($_SERVER['SCRIPT_FILENAME']);
+            } else {
+                $_SERVER['SCRIPT_FILENAME'] = $previous;
+            }
+        }
+    }
+
+    public function testHomeCmsPageAlsoWarmsTheStoreRoot(): void
+    {
+        $store = $this->makeRealisticStore('https://example.com/', 'https://example.com/', 'home|2');
+        $this->storeManager->method('getStores')->willReturn([$store]);
+
+        $rewrite = $this->createMock(UrlRewrite::class);
+        $rewrite->method('getRequestPath')->willReturn('home');
+        $this->urlFinder->method('findAllByData')->willReturn([$rewrite]);
+
+        self::assertSame(
+            ['https://example.com/home', 'https://example.com/'],
+            $this->resolver->resolve(['cms_p_2'])
+        );
+    }
+
+    public function testOtherCmsPagesDoNotWarmTheStoreRoot(): void
+    {
+        $store = $this->makeRealisticStore('https://example.com/', 'https://example.com/', 'home');
+        $this->storeManager->method('getStores')->willReturn([$store]);
+
+        $rewrite = $this->createMock(UrlRewrite::class);
+        $rewrite->method('getRequestPath')->willReturn('about-us');
+        $this->urlFinder->method('findAllByData')->willReturn([$rewrite]);
+
+        self::assertSame(['https://example.com/about-us'], $this->resolver->resolve(['cms_p_5']));
+    }
+
+    /** A store whose link URL differs from its web URL and that exposes its configuration, like Magento's. */
+    private function makeRealisticStore(string $webUrl, string $linkUrl, string $homePage): StoreInterface
+    {
+        return new class ($webUrl, $linkUrl, $homePage) implements StoreInterface {
+            public function __construct(private string $webUrl, private string $linkUrl, private string $homePage) {}
+
+            public function isActive(): bool
+            {
+                return true;
+            }
+
+            public function getBaseUrl($type = 'link'): string
+            {
+                return $type === 'web' ? $this->webUrl : $this->linkUrl;
+            }
+
+            public function getId(): mixed
+            {
+                return 1;
+            }
+
+            public function getCode()
+            {
+                return 'default';
+            }
+
+            public function getConfig(string $path): ?string
+            {
+                return $path === 'web/default/cms_home_page' ? $this->homePage : null;
+            }
+        };
+    }
+
     private function makeActiveStore(string $baseUrl, int $id): StoreInterface
     {
         $store = $this->createMock(StoreInterface::class);

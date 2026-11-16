@@ -242,7 +242,7 @@ The 15 most recent warm runs (inline and full) appear automatically once the API
 |---|---|---|
 | `adminhtml_cache_flush_all` | "Flush Magento Cache" button in admin, or `bin/magento cache:flush` (all cache types or `full_page`) | Full Boost run |
 | `adminhtml_cache_flush_system` | "Flush Storage" button (admin only: in CLI Magento dispatches it from `cache:clean`, which does not start a Boost) | Full Boost run |
-| `clean_cache_after_reindex` | End of a reindex | Full Boost run |
+| `clean_cache_after_reindex` | Legacy post-reindex event. Magento 2.4.6+ no longer dispatches it: a reindex goes through `clean_cache_by_tags` (row below). Still observed for third-party code that fires it. | Full Boost run |
 | `clean_cache_by_tags` | Product/category/CMS page save, etc. | Targeted warm (Smart) or full Boost run (Full Only) |
 
 `clean_cache_by_tags` events are **buffered**: if 20 products are saved in the same request, a single queue message is published, and the consumer makes a single API call with all resolved URLs. If more than 500 tags are invalidated at once (e.g. a large partial reindex), the consumer falls back to the full scheduled Boost instead of resolving them individually.
@@ -253,7 +253,7 @@ The 15 most recent warm runs (inline and full) appear automatically once the API
 |---|---|
 | `cat_p_{id}` | Product URL(s) (all active store views) |
 | `cat_c_{id}` | Category URL(s) |
-| `cms_p_{id}` | CMS page URL |
+| `cms_p_{id}` | CMS page URL, plus the store root `/` when the page is the store's home page |
 | `cms_b_{id}` | *(ignored — CMS blocks have no direct URL)* |
 
 > **Multi-store note:** URLs are resolved for all active store views sharing the default store view's domain. Store views served on a different domain are skipped, because a CacheBoost site is bound to a single domain (create one CacheBoost site per domain if needed).
@@ -294,11 +294,21 @@ Tests cover `Config`, `ApiClient`, `AccountApi`, `UrlCollector`, `TagUrlResolver
 
 ## Uninstallation
 
+Installed with Composer — removes the code, the settings (including the API key) and the module's state (flags, scheduled cron jobs, warm queue):
+
+```bash
+bin/magento module:uninstall CacheBoost_CacheWarmer --remove-data
+bin/magento setup:upgrade
+bin/magento cache:flush
+```
+
+Installed manually in `app/code` (`module:uninstall` only handles Composer packages; the settings stay in `core_config_data` under `cacheboost/`):
+
 ```bash
 bin/magento module:disable CacheBoost_CacheWarmer
 bin/magento setup:upgrade
 bin/magento cache:flush
-# Remove the app/code/CacheBoost/ directory if you installed manually
+rm -rf app/code/CacheBoost/CacheWarmer
 ```
 
 ---
